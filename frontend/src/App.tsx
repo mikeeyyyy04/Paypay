@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
-import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { ProtectedRoute } from './auth/ProtectedRoute';
+import { Navbar } from './components/Navbar';
 import { AppShell } from './layouts/AppShell';
 import { CheckoutPage } from './pages/CheckoutPage';
 import { CheckoutSuccessPage } from './pages/CheckoutSuccessPage';
@@ -50,16 +51,10 @@ export default function App() {
   return (
     <>
       {isPublicRoute ? (
-        <header className="public-nav">
-          <Link to="/" className="public-brand">
-            Paypay Classes
-          </Link>
-          <nav className="public-nav-links">
-            <Link to="/classes">Classes</Link>
-            <Link to="/checkout">Checkout ({cartCount})</Link>
-            <Link to="/admin/login">Admin</Link>
-          </nav>
-        </header>
+        <>
+          <Navbar />
+          <div className="public-nav-offset" aria-hidden="true" />
+        </>
       ) : null}
 
       <Routes>

@@ -1,0 +1,427 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum StudentStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  GRADUATED
+}
+
+enum ClassStatus {
+  DRAFT
+  PUBLISHED
+  FULL
+  ARCHIVED
+  CANCELLED
+}
+
+enum EnrollmentStatus {
+  PENDING_PAYMENT
+  ENROLLED
+  WAITLISTED
+  DROPPED
+  COMPLETED
+  CANCELLED
+}
+
+enum OrderStatus {
+  DRAFT
+  PENDING_PAYMENT
+  PAID
+  CANCELLED
+  EXPIRED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  REVIEWING
+  PAID
+  FAILED
+  REJECTED
+  REFUNDED
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  EXCUSED
+}
+
+enum AnnouncementAudience {
+  ALL
+  STUDENTS
+  ADMINS
+  CLASS
+}
+
+enum NotificationType {
+  SYSTEM
+  ENROLLMENT
+  PAYMENT
+  ANNOUNCEMENT
+  ATTENDANCE
+}
+
+enum ContactStatus {
+  NEW
+  IN_PROGRESS
+  RESOLVED
+  SPAM
+}
+
+enum FileOwnerType {
+  USER
+  STUDENT
+  CLASS
+  ORDER
+  PAYMENT
+  ANNOUNCEMENT
+}
+
+model User {
+  id              String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email           String           @unique @db.Citext
+  fullName        String           @map("full_name")
+  phone           String?
+  avatarUrl       String?          @map("avatar_url")
+  isActive        Boolean          @default(true) @map("is_active")
+  lastLoginAt     DateTime?        @map("last_login_at") @db.Timestamptz(6)
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  activityLogs    ActivityLog[]    @relation("ActorActivityLogs")
+  announcements   Announcement[]   @relation("AnnouncementAuthor")
+  contactsHandled ContactMessage[] @relation("ContactAssignee")
+  files           FileUpload[]     @relation("UploadedFiles")
+  notifications   Notification[]
+  orders          Order[]
+  paymentsVerified Payment[]       @relation("PaymentVerifier")
+  student         Student?
+  userRoles       UserRole[]
+
+  @@index([email])
+  @@map("users")
+}
+
+model Role {
+  id          String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String     @unique
+  description String?
+  createdAt   DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  userRoles   UserRole[]
+
+  @@map("roles")
+}
+
+model UserRole {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  roleId    String   @map("role_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+model Student {
+  id              String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId          String           @unique @map("user_id") @db.Uuid
+  studentNumber   String           @unique @map("student_number")
+  dateOfBirth     DateTime?        @map("date_of_birth") @db.Date
+  guardianName    String?          @map("guardian_name")
+  guardianEmail   String?          @map("guardian_email") @db.Citext
+  guardianPhone   String?          @map("guardian_phone")
+  status          StudentStatus    @default(ACTIVE)
+  notes           String?
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  attendance      Attendance[]
+  enrollments     Enrollment[]
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("students")
+}
+
+model Class {
+  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug            String          @unique
+  title           String
+  description     String
+  instructorName  String          @map("instructor_name")
+  capacity        Int
+  priceCents      Int             @map("price_cents")
+  currency        String          @default("PHP") @db.Char(3)
+  status          ClassStatus     @default(DRAFT)
+  publishedAt     DateTime?       @map("published_at") @db.Timestamptz(6)
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  announcements   Announcement[]
+  enrollments     Enrollment[]
+  files           FileUpload[]
+  orderItems      OrderItem[]
+  schedules       Schedule[]
+
+  @@index([status])
+  @@index([publishedAt])
+  @@map("classes")
+}
+
+model Schedule {
+  id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  classId     String       @map("class_id") @db.Uuid
+  startsAt    DateTime     @map("starts_at") @db.Timestamptz(6)
+  endsAt      DateTime     @map("ends_at") @db.Timestamptz(6)
+  timezone    String       @default("Asia/Manila")
+  meetingUrl  String?      @map("meeting_url")
+  location    String?
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  attendance  Attendance[]
+  class       Class        @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@index([classId, startsAt])
+  @@index([startsAt])
+  @@map("schedules")
+}
+
+model Enrollment {
+  id          String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId   String           @map("student_id") @db.Uuid
+  classId     String           @map("class_id") @db.Uuid
+  orderId     String?          @map("order_id") @db.Uuid
+  status      EnrollmentStatus @default(PENDING_PAYMENT)
+  enrolledAt  DateTime?        @map("enrolled_at") @db.Timestamptz(6)
+  droppedAt   DateTime?        @map("dropped_at") @db.Timestamptz(6)
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  attendance  Attendance[]
+  class       Class            @relation(fields: [classId], references: [id], onDelete: Cascade)
+  order       Order?           @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  student     Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, classId])
+  @@index([classId, status])
+  @@index([studentId, status])
+  @@index([orderId])
+  @@map("enrollments")
+}
+
+model PaymentMethod {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code          String    @unique
+  name          String
+  instructions  String?
+  isActive      Boolean   @default(true) @map("is_active")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  payments      Payment[]
+
+  @@index([isActive])
+  @@map("payment_methods")
+}
+
+model Order {
+  id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderNumber     String       @unique @map("order_number")
+  userId          String?      @map("user_id") @db.Uuid
+  studentEmail    String       @map("student_email") @db.Citext
+  studentName     String       @map("student_name")
+  status          OrderStatus  @default(DRAFT)
+  subtotalCents   Int          @map("subtotal_cents")
+  discountCents   Int          @default(0) @map("discount_cents")
+  totalCents      Int          @map("total_cents")
+  currency        String       @default("PHP") @db.Char(3)
+  expiresAt       DateTime?    @map("expires_at") @db.Timestamptz(6)
+  paidAt          DateTime?    @map("paid_at") @db.Timestamptz(6)
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  enrollments     Enrollment[]
+  items           OrderItem[]
+  payments        Payment[]
+  user            User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+  @@index([studentEmail])
+  @@map("orders")
+}
+
+model OrderItem {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId        String   @map("order_id") @db.Uuid
+  classId        String   @map("class_id") @db.Uuid
+  titleSnapshot  String   @map("title_snapshot")
+  unitPriceCents Int      @map("unit_price_cents")
+  quantity       Int      @default(1)
+  lineTotalCents Int      @map("line_total_cents")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  class          Class    @relation(fields: [classId], references: [id], onDelete: Restrict)
+  order          Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([orderId, classId])
+  @@index([classId])
+  @@map("order_items")
+}
+
+model Payment {
+  id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId           String        @map("order_id") @db.Uuid
+  paymentMethodId   String        @map("payment_method_id") @db.Uuid
+  verifiedByUserId  String?       @map("verified_by_user_id") @db.Uuid
+  amountCents       Int           @map("amount_cents")
+  currency          String        @default("PHP") @db.Char(3)
+  status            PaymentStatus @default(PENDING)
+  externalReference String?       @map("external_reference")
+  proofFileId       String?       @map("proof_file_id") @db.Uuid
+  submittedAt       DateTime?     @map("submitted_at") @db.Timestamptz(6)
+  verifiedAt        DateTime?     @map("verified_at") @db.Timestamptz(6)
+  notes             String?
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  method            PaymentMethod @relation(fields: [paymentMethodId], references: [id], onDelete: Restrict)
+  order             Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  proofFile         FileUpload?   @relation("PaymentProofFile", fields: [proofFileId], references: [id], onDelete: SetNull)
+  verifier          User?         @relation("PaymentVerifier", fields: [verifiedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+  @@index([paymentMethodId])
+  @@index([status, createdAt])
+  @@index([verifiedByUserId])
+  @@map("payments")
+}
+
+model Attendance {
+  id           String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  enrollmentId String           @map("enrollment_id") @db.Uuid
+  studentId    String           @map("student_id") @db.Uuid
+  scheduleId   String           @map("schedule_id") @db.Uuid
+  status       AttendanceStatus
+  checkedInAt  DateTime?        @map("checked_in_at") @db.Timestamptz(6)
+  notes        String?
+  createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  enrollment   Enrollment       @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  schedule     Schedule         @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  student      Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([scheduleId, studentId])
+  @@index([enrollmentId])
+  @@index([studentId, status])
+  @@map("attendance")
+}
+
+model Announcement {
+  id          String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  classId     String?              @map("class_id") @db.Uuid
+  authorId    String?              @map("author_id") @db.Uuid
+  title       String
+  body        String
+  audience    AnnouncementAudience @default(ALL)
+  publishedAt DateTime?            @map("published_at") @db.Timestamptz(6)
+  createdAt   DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  author      User?                @relation("AnnouncementAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  class       Class?               @relation(fields: [classId], references: [id], onDelete: Cascade)
+  files       FileUpload[]
+
+  @@index([classId, publishedAt])
+  @@index([audience, publishedAt])
+  @@map("announcements")
+}
+
+model Notification {
+  id        String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String           @map("user_id") @db.Uuid
+  type      NotificationType
+  title     String
+  body      String
+  data      Json             @default("{}")
+  readAt    DateTime?        @map("read_at") @db.Timestamptz(6)
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@index([type, createdAt])
+  @@map("notifications")
+}
+
+model FileUpload {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  uploadedByUserId String?    @map("uploaded_by_user_id") @db.Uuid
+  classId        String?      @map("class_id") @db.Uuid
+  announcementId String?      @map("announcement_id") @db.Uuid
+  ownerType      FileOwnerType @map("owner_type")
+  ownerId        String       @map("owner_id") @db.Uuid
+  bucket         String
+  storagePath    String       @unique @map("storage_path")
+  originalName   String       @map("original_name")
+  mimeType       String       @map("mime_type")
+  sizeBytes      Int          @map("size_bytes")
+  checksumSha256 String?      @map("checksum_sha256")
+  isPublic       Boolean      @default(false) @map("is_public")
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  announcement   Announcement? @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  class          Class?       @relation(fields: [classId], references: [id], onDelete: Cascade)
+  payments       Payment[]    @relation("PaymentProofFile")
+  uploader       User?        @relation("UploadedFiles", fields: [uploadedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([ownerType, ownerId])
+  @@index([uploadedByUserId])
+  @@index([classId])
+  @@map("file_uploads")
+}
+
+model ContactMessage {
+  id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  assignedToUserId String?       @map("assigned_to_user_id") @db.Uuid
+  name             String
+  email            String        @db.Citext
+  phone            String?
+  subject          String
+  message          String
+  status           ContactStatus @default(NEW)
+  resolvedAt       DateTime?     @map("resolved_at") @db.Timestamptz(6)
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  assignee         User?         @relation("ContactAssignee", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([email])
+  @@map("contacts")
+}
+
+model ActivityLog {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actorUserId String?  @map("actor_user_id") @db.Uuid
+  action      String
+  entityType  String   @map("entity_type")
+  entityId    String?  @map("entity_id") @db.Uuid
+  ipAddress   String?  @map("ip_address") @db.Inet
+  userAgent   String?  @map("user_agent")
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  actor       User?    @relation("ActorActivityLogs", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([actorUserId, createdAt])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("activity_logs")
+}
