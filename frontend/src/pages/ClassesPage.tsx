@@ -1,0 +1,302 @@
+import { useEffect, useState, type FormEvent } from 'react';
+import { emptyClassForm } from '../data/initialData';
+import type { ClassFormValues, ClassItem } from '../types';
+
+type ClassesPageProps = {
+  classes: ClassItem[];
+  onSaveClass: (values: ClassFormValues, classId?: number) => void;
+  onDeleteClass: (classId: number) => void;
+  onActivateClass: (classId: number) => void;
+  onArchiveClass: (classId: number) => void;
+};
+
+type Artwork = {
+  eyebrow: string;
+  lines: string[];
+};
+
+const artworkByTitle: Record<string, Artwork> = {
+  'Advanced Lincoln Douglas Debate Class': {
+    eyebrow: 'Lincoln Douglas',
+    lines: ['Debate', 'Class'],
+  },
+  'Advanced Team Policy Debate Class': {
+    eyebrow: 'Team Policy',
+    lines: ['Debate', 'Class'],
+  },
+  'Parli Protocol': {
+    eyebrow: 'Monthly',
+    lines: ['Parli', 'Protocol'],
+  },
+  'Debate Intro Class': {
+    eyebrow: 'Debate',
+    lines: ['Intro', 'Class'],
+  },
+  'NIHD Speech Class': {
+    eyebrow: 'NIHD',
+    lines: ['Speech', 'Class'],
+  },
+  'Ultimate LD Debate Class': {
+    eyebrow: 'Ultimate LD',
+    lines: ['Debate', 'Class'],
+  },
+};
+
+export function ClassesPage({ classes, onSaveClass, onDeleteClass }: ClassesPageProps) {
+  const [formValues, setFormValues] = useState<ClassFormValues>(emptyClassForm);
+  const [editingClassId, setEditingClassId] = useState<number | undefined>();
+  const [isFormOpen, setIsFormOpen] = useState(false);
+
+  const editingClass = classes.find((classItem) => classItem.id === editingClassId);
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setIsFormOpen(false);
+        setEditingClassId(undefined);
+        setFormValues(emptyClassForm);
+      }
+    }
+
+    if (isFormOpen) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isFormOpen]);
+
+  function resetForm() {
+    setFormValues(emptyClassForm);
+    setEditingClassId(undefined);
+    setIsFormOpen(false);
+  }
+
+  function openCreateForm() {
+    setFormValues(emptyClassForm);
+    setEditingClassId(undefined);
+    setIsFormOpen(true);
+  }
+
+  function startEditing(classItem: ClassItem) {
+    setEditingClassId(classItem.id);
+    setFormValues({
+      title: classItem.title,
+      category: classItem.category,
+      instructor: classItem.instructor,
+      schedule: classItem.schedule,
+      price: classItem.price,
+      capacity: classItem.capacity,
+      status: classItem.status,
+      description: classItem.description,
+      enrolled: classItem.enrolled,
+    });
+    setIsFormOpen(true);
+  }
+
+  function submitClass(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    onSaveClass(formValues, editingClassId);
+    resetForm();
+  }
+
+  return (
+    <section className="catalog-page" aria-label="Class catalog">
+      <header className="catalog-header catalog-header-admin">
+        <div>
+          <p className="catalog-eyebrow">Class management</p>
+          <h2>Classes</h2>
+          <p className="catalog-subtitle">Create new classes, edit the catalog, and remove stale entries.</p>
+        </div>
+        <button className="button small-button catalog-add-button" type="button" onClick={openCreateForm}>
+          Add class
+        </button>
+      </header>
+
+      {isFormOpen ? (
+        <div className="modal-backdrop" role="presentation" onClick={resetForm}>
+          <div className="modal-card" role="dialog" aria-modal="true" aria-labelledby="class-modal-title" onClick={(event) => event.stopPropagation()}>
+            <div className="panel-header modal-header">
+              <div>
+                <p className="catalog-eyebrow">Class management</p>
+                <h3 id="class-modal-title">{editingClass ? 'Edit class' : 'Add class'}</h3>
+                <p className="muted">
+                  {editingClass ? 'Update the selected class and save the changes.' : 'Fill out the form to create a new class.'}
+                </p>
+              </div>
+              <button className="text-button" type="button" onClick={resetForm} aria-label="Close class form">
+                Close
+              </button>
+            </div>
+
+            <form className="form-grid catalog-form" onSubmit={submitClass}>
+              <label>
+                Title
+                <input
+                  value={formValues.title}
+                  onChange={(event) => setFormValues((current) => ({ ...current, title: event.target.value }))}
+                  required
+                />
+              </label>
+              <label>
+                Category
+                <input
+                  value={formValues.category}
+                  onChange={(event) => setFormValues((current) => ({ ...current, category: event.target.value }))}
+                  required
+                />
+              </label>
+              <label>
+                Instructor
+                <input
+                  value={formValues.instructor}
+                  onChange={(event) => setFormValues((current) => ({ ...current, instructor: event.target.value }))}
+                  required
+                />
+              </label>
+              <label>
+                Schedule
+                <input
+                  value={formValues.schedule}
+                  onChange={(event) => setFormValues((current) => ({ ...current, schedule: event.target.value }))}
+                  required
+                />
+              </label>
+              <label>
+                Price
+                <input
+                  value={formValues.price}
+                  onChange={(event) => setFormValues((current) => ({ ...current, price: Number(event.target.value) }))}
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  required
+                />
+              </label>
+              <label>
+                Capacity
+                <input
+                  value={formValues.capacity}
+                  onChange={(event) => setFormValues((current) => ({ ...current, capacity: Number(event.target.value) }))}
+                  type="number"
+                  min="1"
+                  step="1"
+                  required
+                />
+              </label>
+              <label>
+                Status
+                <select
+                  value={formValues.status}
+                  onChange={(event) => setFormValues((current) => ({ ...current, status: event.target.value as ClassFormValues['status'] }))}
+                >
+                  <option>Draft</option>
+                  <option>Active</option>
+                  <option>Full</option>
+                  <option>Archived</option>
+                </select>
+              </label>
+              <label>
+                Enrolled
+                <input
+                  value={formValues.enrolled ?? ''}
+                  onChange={(event) =>
+                    setFormValues((current) => ({
+                      ...current,
+                      enrolled: event.target.value === '' ? undefined : Number(event.target.value),
+                    }))
+                  }
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="Optional"
+                />
+              </label>
+              <label className="span-full">
+                Description
+                <textarea
+                  value={formValues.description}
+                  onChange={(event) => setFormValues((current) => ({ ...current, description: event.target.value }))}
+                  rows={4}
+                  required
+                />
+              </label>
+              <div className="form-actions span-full">
+                <button className="button small-button" type="submit">
+                  {editingClass ? 'Save changes' : 'Add class'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="class-catalog-grid">
+        {classes.map((classItem, index) => {
+          const artwork = artworkByTitle[classItem.title] ?? {
+            eyebrow: classItem.category,
+            lines: classItem.title.split(' ').slice(-2),
+          };
+
+          return (
+            <article className="class-product class-product-admin" key={classItem.id}>
+              <div className={`class-art class-art-${index + 1}`} aria-hidden="true">
+                <div className="class-art-copy">
+                  <span>{artwork.eyebrow}</span>
+                  {artwork.lines.map((line) => (
+                    <strong key={line}>{line}</strong>
+                  ))}
+                </div>
+              </div>
+              <div className="class-card-topline">
+                <span className="class-card-category">{classItem.category}</span>
+                <span className="class-card-price">${classItem.price.toFixed(2)}</span>
+              </div>
+              <h2>{classItem.title}</h2>
+              <p className="class-card-description">{classItem.description}</p>
+              <div className="class-card-meta">
+                <div>
+                  <span className="class-card-label">Instructor</span>
+                  <strong>{classItem.instructor}</strong>
+                </div>
+                <div>
+                  <span className="class-card-label">Schedule</span>
+                  <strong>{classItem.schedule}</strong>
+                </div>
+                <div>
+                  <span className="class-card-label">Enrollment</span>
+                  <strong>
+                    {classItem.enrolled}/{classItem.capacity}
+                  </strong>
+                </div>
+                <div>
+                  <span className="class-card-label">Status</span>
+                  <strong>{classItem.status}</strong>
+                </div>
+              </div>
+              <div className="class-card-actions">
+                <button className="button button-secondary class-card-button" type="button" onClick={() => startEditing(classItem)}>
+                  Edit
+                </button>
+                <button
+                  className="button button-danger class-card-button"
+                  type="button"
+                  onClick={() => {
+                    const shouldDelete = window.confirm(`Delete ${classItem.title}?`);
+                    if (shouldDelete) {
+                      onDeleteClass(classItem.id);
+                      if (editingClassId === classItem.id) {
+                        resetForm();
+                      }
+                    }
+                  }}
+                >
+                  Delete
+                </button>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}

@@ -1,0 +1,11 @@
+{
+  "name": "paypay",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "dev:frontend": "npm --prefix frontend run dev",
+    "build:frontend": "npm --prefix frontend run build",
+    "dev:backend": "npm --prefix backend run dev",
+    "start:backend": "npm --prefix backend start"
+  }
+}
