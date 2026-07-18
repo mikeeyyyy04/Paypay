@@ -780,7 +780,13 @@ textarea {
   display: grid;
   gap: 28px;
   color: #0f172a;
+
+  /* Landing must sit on a white canvas so all dark text stays readable */
+  background: #ffffff;
+  padding: 0 0 12px;
+  min-height: calc(100vh - 64px);
 }
+
 
 .landing-hero {
   display: grid;
