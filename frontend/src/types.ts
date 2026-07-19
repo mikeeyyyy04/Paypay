@@ -2,7 +2,7 @@ export type ClassStatus = 'Active' | 'Draft' | 'Full' | 'Archived';
 export type PaymentStatus = 'Pending' | 'Reviewing' | 'Paid' | 'Rejected';
 
 export type ClassItem = {
-  id: number;
+  id: string;
   title: string;
   category: string;
   instructor: string;
@@ -20,7 +20,7 @@ export type OrderItem = {
   email: string;
   classTitle: string;
   amount: number;
-  paymentMethod: 'Bank transfer';
+  paymentMethod: 'GCash' | 'Bank transfer' | 'Manual payment';
   status: PaymentStatus;
   reference: string;
   transferDate: string;
@@ -28,6 +28,9 @@ export type OrderItem = {
   notes: string;
   verifiedBy?: string;
   verifiedAt?: string;
+  enrollmentApproved?: boolean;
+  paymentReferenceNumber?: string;
+  receipt?: ReceiptSubmission;
 };
 
 export type ClassFormValues = Omit<ClassItem, 'id' | 'enrolled'> & {
@@ -40,7 +43,7 @@ export type VerificationValues = {
 };
 
 export type PublicClass = {
-  id: number;
+  id: string;
   title: string;
   category: string;
   instructor: string;
@@ -53,7 +56,7 @@ export type PublicClass = {
 };
 
 export type CartItem = {
-  classId: number;
+  classId: string;
   title: string;
   instructor: string;
   schedule: string;
@@ -61,24 +64,50 @@ export type CartItem = {
   quantity: number;
 };
 
-export type BankTransferSession = {
+export type PaymentSession = {
   gateway: string;
   sessionId: string;
+  checkoutSessionId?: string;
   paymentUrl: string;
-  bankName: string;
-  virtualAccountNumber: string;
+  checkoutUrl?: string;
+  bankName?: string;
+  virtualAccountNumber?: string;
   amount: number;
+  subtotal?: number;
+  serviceFee?: number;
   currency: string;
-  expiresAt: string;
+  expiresAt: string | null;
   payerEmail: string;
   orderId: string;
+  method?: ManualPaymentMethod;
+  instructions?: string;
+};
+
+export type ManualPaymentMethod = {
+  code: 'gcash' | 'bank_transfer';
+  name: 'GCash' | 'Bank transfer';
+  bankName?: string;
+  accountName: string;
+  accountNumber: string;
+  routingNumber?: string;
+  qrImageUrl?: string;
+  instructions: string;
+};
+
+export type ReceiptSubmission = {
+  name: string;
+  type: string;
+  size: number;
+  dataUrl: string;
+  submittedAt: string;
 };
 
 export type CheckoutResponse = {
   orderId: string;
   amount: number;
   currency: string;
-  payment: BankTransferSession;
+  checkoutUrl: string;
+  payment: PaymentSession;
 };
 
 export type PublicOrderDetail = {
@@ -89,9 +118,11 @@ export type PublicOrderDetail = {
   amount: number;
   reference: string;
   items: Array<{
-    classId: number;
+    classId: string;
     title: string;
     price: number;
   }>;
-  payment: BankTransferSession;
+  payment: PaymentSession;
+  paymentReferenceNumber?: string;
+  receipt?: ReceiptSubmission;
 };

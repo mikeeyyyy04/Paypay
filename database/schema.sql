@@ -72,9 +72,12 @@ create table classes (
   id uuid primary key default gen_random_uuid(),
   slug text not null unique,
   title text not null,
+  category text not null,
   description text not null,
   instructor_name text not null,
+  schedule_label text not null default 'Self-paced',
   capacity integer not null,
+  enrolled integer not null default 0,
   price_cents integer not null,
   currency char(3) not null default 'PHP',
   status class_status not null default 'DRAFT',
@@ -82,8 +85,10 @@ create table classes (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint classes_capacity_positive check (capacity > 0),
+  constraint classes_enrolled_valid check (enrolled >= 0 and enrolled <= capacity),
   constraint classes_price_nonnegative check (price_cents >= 0),
   constraint classes_slug_not_blank check (length(trim(slug)) > 0),
+  constraint classes_category_not_blank check (length(trim(category)) > 0),
   constraint classes_title_not_blank check (length(trim(title)) > 0)
 );
 

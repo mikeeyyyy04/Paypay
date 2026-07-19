@@ -41,8 +41,8 @@ export function OrdersPage({ orders, onVerifyOrder }: OrdersPageProps) {
       <header className="page-header">
         <div>
           <p className="eyebrow">Payments</p>
-          <h2>Orders</h2>
-          <p className="muted">Review bank-transfer details and approve or reject orders.</p>
+          <h2>Registration</h2>
+          <p className="muted">Review GCash and bank transfer details, then approve or reject registrations.</p>
         </div>
       </header>
 
@@ -70,7 +70,7 @@ export function OrdersPage({ orders, onVerifyOrder }: OrdersPageProps) {
         </div>
       </div>
 
-      <Panel title="Bank-transfer verification" subtitle={`${filteredOrders.length} matching order${filteredOrders.length === 1 ? '' : 's'}.`}>
+      <Panel title="Payment verification" subtitle={`${filteredOrders.length} matching order${filteredOrders.length === 1 ? '' : 's'}.`}>
         <OrderVerificationList orders={filteredOrders} onVerifyOrder={onVerifyOrder} emptyMessage="No orders match the current filters." />
       </Panel>
     </section>
@@ -125,8 +125,8 @@ function OrderVerificationCard({
 
       <div className="order-amount-row">
         <div>
-          <span className="muted small-text">Amount received</span>
-          <strong>${order.amount.toFixed(2)}</strong>
+          <span className="muted small-text">Amount</span>
+          <strong>PHP {order.amount.toFixed(2)}</strong>
         </div>
         <div>
           <span className="muted small-text">Reference</span>
@@ -157,6 +157,10 @@ function OrderVerificationCard({
               <dt>Method</dt>
               <dd>{order.paymentMethod}</dd>
             </div>
+            <div>
+              <dt>Notes</dt>
+              <dd>{order.notes}</dd>
+            </div>
           </>
         ) : null}
       </dl>
@@ -181,6 +185,7 @@ function OrderVerificationCard({
         {order.verifiedBy ? (
           <p className="muted small-text">
             Verified by {order.verifiedBy} on {order.verifiedAt}
+            {order.enrollmentApproved ? ' · Enrollment approved' : ''}
           </p>
         ) : null}
         <button className="button small-button" type="submit" disabled={!hasChanges}>

@@ -4,10 +4,12 @@ import type { ClassFormValues, ClassItem } from '../types';
 
 type ClassesPageProps = {
   classes: ClassItem[];
-  onSaveClass: (values: ClassFormValues, classId?: number) => void;
-  onDeleteClass: (classId: number) => void;
-  onActivateClass: (classId: number) => void;
-  onArchiveClass: (classId: number) => void;
+  loading?: boolean;
+  error?: string;
+  onSaveClass: (values: ClassFormValues, classId?: string) => Promise<void> | void;
+  onDeleteClass: (classId: string) => Promise<void> | void;
+  onActivateClass: (classId: string) => Promise<void> | void;
+  onArchiveClass: (classId: string) => Promise<void> | void;
 };
 
 type Artwork = {
@@ -42,10 +44,12 @@ const artworkByTitle: Record<string, Artwork> = {
   },
 };
 
-export function ClassesPage({ classes, onSaveClass, onDeleteClass }: ClassesPageProps) {
+export function ClassesPage({ classes, loading = false, error = '', onSaveClass, onDeleteClass }: ClassesPageProps) {
   const [formValues, setFormValues] = useState<ClassFormValues>(emptyClassForm);
-  const [editingClassId, setEditingClassId] = useState<number | undefined>();
+  const [editingClassId, setEditingClassId] = useState<string | undefined>();
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [actionError, setActionError] = useState('');
 
   const editingClass = classes.find((classItem) => classItem.id === editingClassId);
 
@@ -93,10 +97,19 @@ export function ClassesPage({ classes, onSaveClass, onDeleteClass }: ClassesPage
     setIsFormOpen(true);
   }
 
-  function submitClass(event: FormEvent<HTMLFormElement>) {
+  async function submitClass(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    onSaveClass(formValues, editingClassId);
-    resetForm();
+    setIsSaving(true);
+    setActionError('');
+
+    try {
+      await onSaveClass(formValues, editingClassId);
+      resetForm();
+    } catch (saveError) {
+      setActionError(saveError instanceof Error ? saveError.message : 'Failed to save class.');
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   return (
@@ -222,13 +235,17 @@ export function ClassesPage({ classes, onSaveClass, onDeleteClass }: ClassesPage
               </label>
               <div className="form-actions span-full">
                 <button className="button small-button" type="submit">
-                  {editingClass ? 'Save changes' : 'Add class'}
+                  {isSaving ? 'Saving...' : editingClass ? 'Save changes' : 'Add class'}
                 </button>
               </div>
+              {actionError ? <p className="error span-full">{actionError}</p> : null}
             </form>
           </div>
         </div>
       ) : null}
+
+      {loading ? <p className="muted catalog-subtitle">Loading classes from database...</p> : null}
+      {error ? <p className="error catalog-subtitle">{error}</p> : null}
 
       <div className="class-catalog-grid">
         {classes.map((classItem, index) => {
@@ -249,7 +266,7 @@ export function ClassesPage({ classes, onSaveClass, onDeleteClass }: ClassesPage
               </div>
               <div className="class-card-topline">
                 <span className="class-card-category">{classItem.category}</span>
-                <span className="class-card-price">${classItem.price.toFixed(2)}</span>
+                <span className="class-card-price">PHP {classItem.price.toFixed(2)}</span>
               </div>
               <h2>{classItem.title}</h2>
               <p className="class-card-description">{classItem.description}</p>
@@ -283,7 +300,7 @@ export function ClassesPage({ classes, onSaveClass, onDeleteClass }: ClassesPage
                   onClick={() => {
                     const shouldDelete = window.confirm(`Delete ${classItem.title}?`);
                     if (shouldDelete) {
-                      onDeleteClass(classItem.id);
+                      void onDeleteClass(classItem.id);
                       if (editingClassId === classItem.id) {
                         resetForm();
                       }

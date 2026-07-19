@@ -160,9 +160,12 @@ model Class {
   id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   slug            String          @unique
   title           String
+  category        String
   description     String
   instructorName  String          @map("instructor_name")
+  scheduleLabel   String          @default("Self-paced") @map("schedule_label")
   capacity        Int
+  enrolled        Int             @default(0)
   priceCents      Int             @map("price_cents")
   currency        String          @default("PHP") @db.Char(3)
   status          ClassStatus     @default(DRAFT)

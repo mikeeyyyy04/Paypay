@@ -37,7 +37,7 @@ export function DashboardPage({ classes, orders, stats, onVerifyOrder }: Dashboa
         <div className="hero-summary">
           <span>Next review</span>
           <strong>{nextOrder ? nextOrder.id : 'Clear'}</strong>
-          <small>{nextOrder ? `${nextOrder.customer} - $${nextOrder.amount.toFixed(2)}` : 'No pending transfers'}</small>
+          <small>{nextOrder ? `${nextOrder.customer} - PHP ${nextOrder.amount.toFixed(2)}` : 'No pending transfers'}</small>
         </div>
       </header>
 
@@ -45,11 +45,11 @@ export function DashboardPage({ classes, orders, stats, onVerifyOrder }: Dashboa
         <StatCard label="Pending payments" value={String(stats.pendingPayments)} helper={`${completionRate}% of orders closed`} />
         <StatCard label="Active classes" value={String(stats.activeClasses)} helper={`${classes.length} total catalog items`} />
         <StatCard label="Full classes" value={String(stats.fullClasses)} helper="Capacity pressure watch" />
-        <StatCard label="Paid revenue" value={`$${stats.revenue.toFixed(2)}`} helper={`${paidRevenueRate}% of submitted value`} />
+        <StatCard label="Paid revenue" value={`PHP ${stats.revenue.toFixed(2)}`} helper={`${paidRevenueRate}% of submitted value`} />
       </div>
 
       <div className="dashboard-focus-grid">
-        <Panel title="Bank transfer queue" subtitle="Newest orders that need a verification decision.">
+        <Panel title="Registration queue" subtitle="Newest registrations that need a verification decision.">
           <OrderVerificationList orders={urgentOrders} onVerifyOrder={onVerifyOrder} compact emptyMessage="No pending reviews." />
         </Panel>
 
@@ -82,7 +82,7 @@ export function DashboardPage({ classes, orders, stats, onVerifyOrder }: Dashboa
         </Panel>
       </div>
 
-      <Panel title="Recent activity" subtitle="Latest submitted transfers across every status.">
+      <Panel title="Recent activity" subtitle="Latest submitted registrations across every status.">
         <div className="activity-grid">
           {recentOrders.map((order) => (
             <article className="activity-item activity-order" key={order.id}>
@@ -92,7 +92,7 @@ export function DashboardPage({ classes, orders, stats, onVerifyOrder }: Dashboa
               </div>
               <p>{order.customer}</p>
               <small>
-                {order.classTitle} - ${order.amount.toFixed(2)}
+                {order.classTitle} - PHP {order.amount.toFixed(2)}
               </small>
             </article>
           ))}

@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Navigate, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import { adminClassesApi, adminOrdersApi } from '../api';
 import { initialClasses, initialOrders } from '../data/initialData';
 import { ClassesPage } from '../pages/ClassesPage';
 import { DashboardPage } from '../pages/DashboardPage';
@@ -8,11 +9,13 @@ import { OrdersPage } from '../pages/OrdersPage';
 import type { ClassFormValues, ClassItem, ClassStatus, OrderItem, VerificationValues } from '../types';
 
 export function AppShell() {
-  const { user, logout } = useAuth();
+  const { user, token, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [classes, setClasses] = useState<ClassItem[]>(initialClasses);
   const [orders, setOrders] = useState<OrderItem[]>(initialOrders);
+  const [classesLoading, setClassesLoading] = useState(true);
+  const [classesError, setClassesError] = useState('');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const isCatalogRoute = location.pathname === '/admin/classes';
   const shellClassName = `${isCatalogRoute ? 'app-shell catalog-shell' : 'app-shell workspace-shell'}${
@@ -29,51 +32,108 @@ export function AppShell() {
     [classes, orders],
   );
 
-  function saveClass(values: ClassFormValues, classId?: number) {
-    if (classId) {
-      setClasses((currentClasses) =>
-        currentClasses.map((classItem) =>
-          classItem.id === classId
-            ? {
-                ...classItem,
-                ...values,
-                enrolled: Math.min(values.enrolled ?? classItem.enrolled, values.capacity),
-              }
-            : classItem,
-        ),
-      );
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadClasses() {
+      if (!token) {
+        setClassesLoading(false);
+        return;
+      }
+
+      try {
+        setClassesError('');
+        const response = await adminClassesApi.list(token);
+        if (mounted) {
+          setClasses(response.classes);
+        }
+      } catch (error) {
+        if (mounted) {
+          setClassesError(error instanceof Error ? error.message : 'Failed to load classes from the database.');
+        }
+      } finally {
+        if (mounted) {
+          setClassesLoading(false);
+        }
+      }
+    }
+
+    loadClasses();
+
+    return () => {
+      mounted = false;
+    };
+  }, [token]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadOrders() {
+      if (!token) {
+        return;
+      }
+
+      try {
+        const response = await adminOrdersApi.list(token);
+        if (mounted) {
+          setOrders(response.orders);
+        }
+      } catch {
+        // Keep seeded orders visible if the backend is unavailable.
+      }
+    }
+
+    loadOrders();
+
+    return () => {
+      mounted = false;
+    };
+  }, [token]);
+
+  async function saveClass(values: ClassFormValues, classId?: string) {
+    if (!token) {
+      setClassesError('Your admin session expired. Please log in again.');
       return;
     }
 
-    setClasses((currentClasses) => [
-      {
-        ...values,
-        id: Math.max(0, ...currentClasses.map((classItem) => classItem.id)) + 1,
-        enrolled: values.enrolled ?? 0,
-      },
-      ...currentClasses,
-    ]);
+    if (classId) {
+      const response = await adminClassesApi.update(token, classId, values);
+      setClasses((currentClasses) => currentClasses.map((classItem) => (classItem.id === classId ? response.classItem : classItem)));
+      return;
+    }
+
+    const response = await adminClassesApi.create(token, values);
+    setClasses((currentClasses) => [response.classItem, ...currentClasses]);
   }
 
-  function updateClassStatus(classId: number, status: ClassStatus) {
-    setClasses((currentClasses) =>
-      currentClasses.map((classItem) => (classItem.id === classId ? { ...classItem, status } : classItem)),
-    );
+  async function deleteClass(classId: string) {
+    if (!token) {
+      setClassesError('Your admin session expired. Please log in again.');
+      return;
+    }
+
+    await adminClassesApi.delete(token, classId);
+    setClasses((currentClasses) => currentClasses.filter((classItem) => classItem.id !== classId));
   }
 
-  function verifyOrder(orderId: string, values: VerificationValues) {
+  async function updateClassStatus(classId: string, status: ClassStatus) {
+    const classItem = classes.find((candidate) => candidate.id === classId);
+
+    if (!classItem) {
+      return;
+    }
+
+    await saveClass({ ...classItem, status }, classId);
+  }
+
+  async function verifyOrder(orderId: string, values: VerificationValues) {
+    if (!token) {
+      return;
+    }
+
+    const response = await adminOrdersApi.update(token, orderId, values);
     setOrders((currentOrders) =>
-      currentOrders.map((order) =>
-        order.id === orderId
-          ? {
-              ...order,
-              status: values.status,
-              notes: values.notes,
-              verifiedBy: values.status === 'Paid' || values.status === 'Rejected' ? user?.name ?? user?.email : order.verifiedBy,
-              verifiedAt: values.status === 'Paid' || values.status === 'Rejected' ? new Date().toISOString().slice(0, 10) : order.verifiedAt,
-            }
-          : order,
-      ),
+      currentOrders.map((order) => (order.id === orderId ? response.order : order)),
     );
   }
 
@@ -97,7 +157,7 @@ export function AppShell() {
         </div>
 
         <div className="sidebar-copy-wrap">
-          <p className="muted sidebar-copy">Manage classes, orders, and bank-transfer reviews from one place.</p>
+          <p className="muted sidebar-copy">Manage classes, registrations, and manual payment reviews from one place.</p>
         </div>
 
         <nav className="nav">
@@ -109,9 +169,9 @@ export function AppShell() {
             <span className="nav-short">C</span>
             <span className="nav-label">Classes</span>
           </NavLink>
-          <NavLink to="/admin/orders" aria-label="Orders">
-            <span className="nav-short">O</span>
-            <span className="nav-label">Orders</span>
+          <NavLink to="/admin/orders" aria-label="Registration">
+            <span className="nav-short">R</span>
+            <span className="nav-label">Registration</span>
           </NavLink>
         </nav>
 
@@ -144,8 +204,10 @@ export function AppShell() {
             element={
               <ClassesPage
                 classes={classes}
+                loading={classesLoading}
+                error={classesError}
                 onSaveClass={saveClass}
-                onDeleteClass={(classId) => setClasses((currentClasses) => currentClasses.filter((classItem) => classItem.id !== classId))}
+                onDeleteClass={deleteClass}
                 onActivateClass={(classId) => updateClassStatus(classId, 'Active')}
                 onArchiveClass={(classId) => updateClassStatus(classId, 'Archived')}
               />

@@ -42,7 +42,7 @@ export default function App() {
     });
   }
 
-  function removeCartItem(classId: number) {
+  function removeCartItem(classId: string) {
     setCartItems((currentItems) => currentItems.filter((item) => item.classId !== classId));
   }
 
@@ -58,7 +58,7 @@ export default function App() {
       ) : null}
 
       <Routes>
-        <Route path="/" element={<PublicHomePage cartCount={cartCount} />} />
+        <Route path="/" element={<PublicHomePage cartCount={cartCount} onAddToCart={addToCart} />} />
         <Route path="/classes" element={<PublicClassesPage cartCount={cartCount} onAddToCart={addToCart} />} />
         <Route
           path="/checkout"

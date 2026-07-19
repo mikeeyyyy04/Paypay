@@ -1,5 +1,14 @@
 import type { AuthUser } from './auth/AuthContext';
-import type { CheckoutResponse, PublicClass, PublicOrderDetail } from './types';
+import type {
+  CheckoutResponse,
+  ClassFormValues,
+  ClassItem,
+  ManualPaymentMethod,
+  OrderItem,
+  PublicClass,
+  PublicOrderDetail,
+  VerificationValues,
+} from './types';
 
 export type LoginResponse = {
   token: string;
@@ -71,14 +80,75 @@ export const publicApi = {
   listClasses() {
     return request<{ classes: PublicClass[] }>('/public/classes');
   },
-  checkoutBankTransfer(payload: { customerName: string; email: string; items: Array<{ classId: number }> }) {
-    return request<CheckoutResponse>('/public/checkout/bank-transfer', {
+  listPaymentMethods() {
+    return request<{ paymentMethods: ManualPaymentMethod[] }>('/public/payment-methods');
+  },
+  checkoutManual(payload: {
+    customerName: string;
+    email: string;
+    paymentMethod: ManualPaymentMethod['code'];
+    items: Array<{ classId: string }>;
+  }) {
+    return request<CheckoutResponse>('/public/checkout/manual', {
       method: 'POST',
       body: JSON.stringify(payload),
     });
   },
   getOrder(orderId: string) {
     return request<PublicOrderDetail>(`/public/orders/${encodeURIComponent(orderId)}`);
+  },
+  submitReceipt(orderId: string, payload: {
+    referenceNumber: string;
+    receiptFile: {
+      name: string;
+      type: string;
+      size: number;
+      dataUrl: string;
+    };
+  }) {
+    return request<{ order: OrderItem }>(`/public/orders/${encodeURIComponent(orderId)}/payment-proof`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+};
+
+export const adminOrdersApi = {
+  list(token: string) {
+    return request<{ orders: OrderItem[] }>('/admin/orders', { token });
+  },
+  update(token: string, orderId: string, values: VerificationValues) {
+    return request<{ order: OrderItem }>(`/admin/orders/${encodeURIComponent(orderId)}`, {
+      method: 'PATCH',
+      token,
+      body: JSON.stringify(values),
+    });
+  },
+};
+
+export const adminClassesApi = {
+  list(token: string) {
+    return request<{ classes: ClassItem[] }>('/admin/classes', { token });
+  },
+  create(token: string, values: ClassFormValues) {
+    return request<{ classItem: ClassItem }>('/admin/classes', {
+      method: 'POST',
+      token,
+      body: JSON.stringify(values),
+    });
+  },
+  update(token: string, classId: string, values: ClassFormValues) {
+    return request<{ classItem: ClassItem }>(`/admin/classes/${encodeURIComponent(classId)}`, {
+      method: 'PUT',
+      token,
+      body: JSON.stringify(values),
+    });
+  },
+  delete(token: string, classId: string) {
+    return request<void>(`/admin/classes/${encodeURIComponent(classId)}`, {
+      method: 'DELETE',
+      token,
+    });
   },
 };
 

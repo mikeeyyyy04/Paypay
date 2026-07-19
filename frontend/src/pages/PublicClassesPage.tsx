@@ -73,7 +73,7 @@ export function PublicClassesPage({ cartCount, onAddToCart }: PublicClassesPageP
           <article key={classItem.id} className="store-class-card">
             <div className="store-card-topline">
               <span>{classItem.category}</span>
-              <strong>${classItem.price.toFixed(2)}</strong>
+              <strong>PHP {classItem.price.toFixed(2)}</strong>
             </div>
             <h3>{classItem.title}</h3>
             <p>{classItem.description}</p>
