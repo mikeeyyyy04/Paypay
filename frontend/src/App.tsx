@@ -5,6 +5,7 @@ import { Navbar } from './components/Navbar';
 import { AppShell } from './layouts/AppShell';
 import { CheckoutPage } from './pages/CheckoutPage';
 import { CheckoutSuccessPage } from './pages/CheckoutSuccessPage';
+import { CourseDetailsPage } from './pages/CourseDetailsPage';
 import { LoginPage } from './pages/LoginPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { PublicClassesPage } from './pages/PublicClassesPage';
@@ -60,6 +61,10 @@ export default function App() {
       <Routes>
         <Route path="/" element={<PublicHomePage cartCount={cartCount} onAddToCart={addToCart} />} />
         <Route path="/classes" element={<PublicClassesPage cartCount={cartCount} onAddToCart={addToCart} />} />
+        <Route
+          path="/course/:id"
+          element={<CourseDetailsPage cartCount={cartCount} onAddToCart={addToCart} />}
+        />
         <Route
           path="/checkout"
           element={

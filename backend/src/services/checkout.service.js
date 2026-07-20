@@ -1,14 +1,17 @@
 ﻿import { prisma } from '../database/prisma.js';
 import { findClassesForCheckout, classPrice } from './class.service.js';
-import {
-  configuredBankAccounts,
-  createBankTransferSession,
-  createManualPaymentSession,
-  findPaymentMethod,
-  gcashDetails,
-} from './payment.service.js';
 import { nextOrderId } from './order.service.js';
 import { parseManualCheckoutPayload } from '../schemas/checkout.schema.js';
+
+import {
+  findPaymentMethod,
+  gcashDetails,
+  createManualPaymentSession,
+} from './payment.service.js';
+
+import {
+  createPaypalOrder,
+} from './paypal.service.js';
 
 function buildOrderSummary(selectedClasses) {
   return selectedClasses.map((classItem) => classItem.title).join(', ');

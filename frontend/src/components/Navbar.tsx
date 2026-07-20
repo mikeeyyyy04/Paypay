@@ -2,11 +2,30 @@ import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 
 const navItems = [
-  { label: 'Home', sectionId: 'home' },
-  { label: 'About', sectionId: 'about' },
-  { label: 'Classes', sectionId: 'classes' },
-  { label: 'Pricing', sectionId: 'pricing' },
-  { label: 'Contact', sectionId: 'contact' },
+  {
+    label: "Home",
+    sectionId: "home",
+    path: "/",
+  },
+  {
+    label: "About",
+    sectionId: "about",
+    path: "/#about",
+  },
+  {
+    label: "Classes",
+    path: "/classes",
+  },
+  {
+    label: "Pricing",
+    sectionId: "pricing",
+    path: "/#pricing",
+  },
+  {
+    label: "Contact",
+    sectionId: "contact",
+    path: "/#contact",
+  },
 ];
 
 export function Navbar() {
@@ -117,15 +136,31 @@ export function Navbar() {
       >
         <div className="public-nav-links">
           {navItems.map((item) => (
-            <button
-              key={item.sectionId}
-              className={activeSection === item.sectionId ? 'active' : ''}
-              type="button"
-              onClick={() => scrollToSection(item.sectionId)}
-            >
-              {item.label}
-            </button>
-          ))}
+  <button
+    key={item.label}
+    className={activeSection === item.sectionId ? "active" : ""}
+    type="button"
+    onClick={() => {
+      setIsMenuOpen(false);
+
+      if (item.path === "/classes") {
+        navigate("/classes");
+        return;
+      }
+
+      if (item.path === "/") {
+        navigate("/");
+        return;
+      }
+
+      if (item.sectionId) {
+        scrollToSection(item.sectionId);
+      }
+    }}
+  >
+    {item.label}
+  </button>
+))}
         </div>
 
         <Link className="public-login-button" to="/admin/login" onClick={() => setIsMenuOpen(false)}>

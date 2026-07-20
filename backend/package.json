@@ -9,6 +9,7 @@
     "db:seed:classes": "node prisma/seed-classes.js"
   },
   "dependencies": {
+    "@paypal/paypal-server-sdk": "^2.4.0",
     "@prisma/client": "6.19.3",
     "dotenv": "^16.4.7",
     "express": "^5.2.1",
