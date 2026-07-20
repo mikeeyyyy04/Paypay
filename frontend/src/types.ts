@@ -3,6 +3,7 @@ export type PaymentStatus = 'Pending' | 'Reviewing' | 'Paid' | 'Rejected';
 
 export type ClassItem = {
   id: string;
+  slug: string;
   title: string;
   category: string;
   instructor: string;
@@ -12,6 +13,7 @@ export type ClassItem = {
   enrolled: number;
   status: ClassStatus;
   description: string;
+  coverImage?: string | null;
 };
 
 export type OrderItem = {
@@ -33,8 +35,17 @@ export type OrderItem = {
   receipt?: ReceiptSubmission;
 };
 
-export type ClassFormValues = Omit<ClassItem, 'id' | 'enrolled'> & {
+export type ClassFormValues = {
+  title: string;
+  category: string;
+  instructor: string;
+  schedule: string;
+  price: number;
+  capacity: number;
+  status: ClassStatus;
+  description: string;
   enrolled?: number;
+  coverImage?: File | null;
 };
 
 export type VerificationValues = {
@@ -44,6 +55,7 @@ export type VerificationValues = {
 
 export type PublicClass = {
   id: string;
+  slug: string;
   title: string;
   category: string;
   instructor: string;
@@ -53,6 +65,8 @@ export type PublicClass = {
   enrolled: number;
   status: ClassStatus;
   description: string;
+
+  coverImage?: string | null;
 };
 
 export type CartItem = {
@@ -103,11 +117,60 @@ export type ReceiptSubmission = {
 };
 
 export type CheckoutResponse = {
+  success: boolean;
+  paymentMethod: 'gcash' | 'paypal';
+
   orderId: string;
+
   amount: number;
+
   currency: string;
-  checkoutUrl: string;
-  payment: PaymentSession;
+
+  checkoutUrl?: string;
+
+  paypalOrderId?: string;
+
+  classTitle?: string;
+
+  items?: Array<{
+    classId: string;
+    title: string;
+    price: number;
+  }>;
+
+  payment?: {
+    gateway: string;
+
+    sessionId: string;
+
+    paymentUrl: string;
+
+    amount: number;
+
+    currency: string;
+
+    payerEmail: string;
+
+    expiresAt: string | null;
+
+    orderId: string;
+
+    instructions: string;
+
+    method: {
+      code: string;
+
+      name: string;
+
+      accountName: string;
+
+      accountNumber: string;
+
+      qrImageUrl?: string;
+
+      instructions: string;
+    };
+  };
 };
 
 export type PublicOrderDetail = {
@@ -126,3 +189,6 @@ export type PublicOrderDetail = {
   paymentReferenceNumber?: string;
   receipt?: ReceiptSubmission;
 };
+
+
+

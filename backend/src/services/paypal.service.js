@@ -1,10 +1,10 @@
-const PAYPAL_API_BASE_URL =
+const PAYPAL_API =
   process.env.PAYPAL_MODE === 'live'
     ? 'https://api-m.paypal.com'
     : 'https://api-m.sandbox.paypal.com';
 
 /**
- * Get OAuth access token from PayPal
+ * Get PayPal Access Token
  */
 async function getAccessToken() {
   const auth = Buffer.from(
@@ -12,7 +12,7 @@ async function getAccessToken() {
   ).toString('base64');
 
   const response = await fetch(
-    `${PAYPAL_API_BASE_URL}/v1/oauth2/token`,
+    `${PAYPAL_API}/v1/oauth2/token`,
     {
       method: 'POST',
       headers: {
@@ -27,7 +27,8 @@ async function getAccessToken() {
 
   if (!response.ok) {
     throw new Error(
-      data.error_description || 'Failed to authenticate with PayPal.'
+      data.error_description ||
+      'Unable to authenticate with PayPal.'
     );
   }
 
@@ -35,21 +36,21 @@ async function getAccessToken() {
 }
 
 /**
- * Create a PayPal Order
+ * Create PayPal Order
  */
 export async function createPaypalOrder({
   orderId,
   totalAmount,
   currency = 'USD',
 }) {
-  const accessToken = await getAccessToken();
+  const token = await getAccessToken();
 
   const response = await fetch(
-    `${PAYPAL_API_BASE_URL}/v2/checkout/orders`,
+    `${PAYPAL_API}/v2/checkout/orders`,
     {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${accessToken}`,
+        Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -70,7 +71,10 @@ export async function createPaypalOrder({
   const data = await response.json();
 
   if (!response.ok) {
-    throw new Error(data.message || 'Failed to create PayPal order.');
+    throw new Error(
+      data.message ||
+      'Unable to create PayPal order.'
+    );
   }
 
   return {
@@ -78,25 +82,29 @@ export async function createPaypalOrder({
     orderId: data.id,
     status: data.status,
     checkoutUrl:
-      data.links.find((link) => link.rel === 'approve')?.href ?? null,
-    currency,
+      data.links.find(
+        (link) => link.rel === 'approve'
+      )?.href ?? null,
     amount: totalAmount,
+    currency,
     raw: data,
   };
 }
 
 /**
- * Capture an approved PayPal Order
+ * Capture PayPal Order
  */
-export async function capturePaypalOrder(paypalOrderId) {
-  const accessToken = await getAccessToken();
+export async function capturePaypalOrder(
+  paypalOrderId
+) {
+  const token = await getAccessToken();
 
   const response = await fetch(
-    `${PAYPAL_API_BASE_URL}/v2/checkout/orders/${paypalOrderId}/capture`,
+    `${PAYPAL_API}/v2/checkout/orders/${paypalOrderId}/capture`,
     {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${accessToken}`,
+        Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
     }
@@ -105,15 +113,19 @@ export async function capturePaypalOrder(paypalOrderId) {
   const data = await response.json();
 
   if (!response.ok) {
-    throw new Error(data.message || 'Failed to capture PayPal payment.');
+    throw new Error(
+      data.message ||
+      'Unable to capture PayPal payment.'
+    );
   }
 
   return {
     success: true,
-    paypalOrderId,
     status: data.status,
+    paypalOrderId,
     captureId:
-      data.purchase_units?.[0]?.payments?.captures?.[0]?.id ?? null,
+      data.purchase_units?.[0]?.payments?.captures?.[0]?.id ??
+      null,
     payer:
       data.payer?.email_address ?? null,
     raw: data,

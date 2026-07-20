@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { publicApi } from '../api';
-import type { CartItem, ManualPaymentMethod } from '../types';
-
+import type {
+  CartItem,
+  CheckoutResponse,
+  ManualPaymentMethod,
+} from '../types';
 type CheckoutPageProps = {
   cartItems: CartItem[];
   onRemoveItem: (classId: string) => void;
@@ -12,41 +15,113 @@ type CheckoutPageProps = {
 export function CheckoutPage({ cartItems, onRemoveItem, onClearCart }: CheckoutPageProps) {
   const [customerName, setCustomerName] = useState('');
   const [email, setEmail] = useState('');
-  const [paymentMethods, setPaymentMethods] = useState<ManualPaymentMethod[]>([]);
-  const [paymentMethod, setPaymentMethod] = useState<ManualPaymentMethod['code']>('gcash');
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState('');
+const [paymentMethods, setPaymentMethods] = useState<ManualPaymentMethod[]>([]);
+const [paymentMethod, setPaymentMethod] = useState<ManualPaymentMethod['code']>('gcash');
 
-  const subtotal = useMemo(
-    () => cartItems.reduce((total, item) => total + item.price * item.quantity, 0),
-    [cartItems],
-  );
-  const total = subtotal;
-  const selectedPaymentMethod = paymentMethods.find((method) => method.code === paymentMethod);
+const [checkoutResult, setCheckoutResult] =
+  useState<CheckoutResponse | null>(null);
+const [receiptFile, setReceiptFile] = useState<File | null>(null);
+const [receiptPreview, setReceiptPreview] = useState<string>('');
+const [referenceNumber, setReferenceNumber] = useState('');
+const [uploadingReceipt, setUploadingReceipt] = useState(false);
+const [submitting, setSubmitting] = useState(false);
+const [error, setError] = useState('');
+
+const subtotal = useMemo(
+  () =>
+    cartItems.reduce(
+      (total, item) => total + item.price * item.quantity,
+      0,
+    ),
+  [cartItems],
+);
+
+const total = subtotal;
+
+const selectedPaymentMethod =
+  paymentMethods.find(
+    (method) => method.code === paymentMethod,
+  ) ?? null;
 
   useEffect(() => {
-    let mounted = true;
+  let mounted = true;
 
-    async function loadPaymentMethods() {
-      try {
-        const response = await publicApi.listPaymentMethods();
-        if (mounted) {
-          setPaymentMethods(response.paymentMethods);
-          setPaymentMethod('gcash');
-        }
-      } catch (apiError) {
-        if (mounted) {
-          setError(apiError instanceof Error ? apiError.message : 'Could not load payment methods.');
+  async function loadPaymentMethods() {
+    try {
+      const response = await publicApi.listPaymentMethods();
+
+      if (mounted) {
+        setPaymentMethods(response.paymentMethods);
+
+        if (response.paymentMethods.length > 0) {
+          setPaymentMethod(response.paymentMethods[0].code);
         }
       }
+    } catch (apiError) {
+      if (mounted) {
+        setError(
+          apiError instanceof Error
+            ? apiError.message
+            : 'Could not load payment methods.',
+        );
+      }
+    }
+  }
+
+  loadPaymentMethods();
+
+  return () => {
+    mounted = false;
+  };
+}, []);
+
+  async function submitReceipt() {
+    if (!checkoutResult) {
+      return;
     }
 
-    loadPaymentMethods();
+    if (!receiptFile) {
+      setError('Please choose a receipt image.');
+      return;
+    }
 
-    return () => {
-      mounted = false;
-    };
-  }, []);
+    if (!referenceNumber.trim()) {
+      setError('Please enter your GCash reference number.');
+      return;
+    }
+
+    setUploadingReceipt(true);
+    setError('');
+
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(receiptFile);
+      });
+
+      await publicApi.submitReceipt(checkoutResult.orderId, {
+        referenceNumber,
+        receiptFile: {
+          name: receiptFile.name,
+          type: receiptFile.type,
+          size: receiptFile.size,
+          dataUrl,
+        },
+      });
+
+      alert('Receipt uploaded successfully. Please wait for admin verification.');
+      setReceiptFile(null);
+      setReceiptPreview('');
+      setReferenceNumber('');
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : 'Receipt upload failed.');
+    } finally {
+      setUploadingReceipt(false);
+    }
+  }
 
   async function submitCheckout(event: FormEvent) {
     event.preventDefault();
@@ -58,17 +133,38 @@ export function CheckoutPage({ cartItems, onRemoveItem, onClearCart }: CheckoutP
 
     setSubmitting(true);
     setError('');
+    setCheckoutResult(null);
 
     try {
-      const response = await publicApi.checkoutManual({
+      const payload = {
         customerName,
         email,
         paymentMethod,
-        items: cartItems.map((item) => ({ classId: item.classId })),
-      });
+        items: cartItems.map((item) => ({
+          classId: item.classId,
+        })),
+      };
 
-      onClearCart();
-      window.location.assign(response.checkoutUrl);
+      if (paymentMethod === 'gcash') {
+        const response = await publicApi.checkoutGcash({
+          ...payload,
+          paymentMethod: 'gcash',
+        });
+
+        setCheckoutResult(response);
+      } else {
+        const response = await publicApi.checkoutPaypal({
+          ...payload,
+          paymentMethod: 'paypal',
+        });
+
+        if (response.checkoutUrl) {
+          window.location.href = response.checkoutUrl;
+          return;
+        }
+
+        throw new Error('PayPal checkout URL was not returned.');
+      }
     } catch (apiError) {
       setError(apiError instanceof Error ? apiError.message : 'Checkout failed.');
     } finally {
@@ -76,8 +172,8 @@ export function CheckoutPage({ cartItems, onRemoveItem, onClearCart }: CheckoutP
     }
   }
 
-  const paymentMethodLabel = paymentMethod === 'gcash' ? 'GCash' : 'Bank transfer';
-  const isBankTransfer = paymentMethod === 'bank_transfer';
+  const paymentMethodLabel =
+  paymentMethod === 'gcash' ? 'GCash' : 'PayPal';
 
   return (
     <section className="storefront-page">
@@ -156,30 +252,106 @@ export function CheckoutPage({ cartItems, onRemoveItem, onClearCart }: CheckoutP
             {selectedPaymentMethod ? (
               <div className="payment-instructions span-full">
                 <strong>{selectedPaymentMethod.name} payment details</strong>
-                {selectedPaymentMethod.qrImageUrl && !isBankTransfer ? (
-                  <img
-                    className="payment-qr"
-                    src={selectedPaymentMethod.qrImageUrl}
-                    alt={`${selectedPaymentMethod.name} QR code for ${selectedPaymentMethod.accountName}`}
-                  />
-                ) : null}
+                {checkoutResult?.payment?.method?.qrImageUrl ? (
+  <img
+    className="payment-qr"
+    src={checkoutResult.payment.method.qrImageUrl}
+    alt="GCash QR Code"
+  />
+) : null}
                 <dl className="detail-list">
-                  {selectedPaymentMethod.bankName ? (
-                    <div>
-                      <dt>Bank</dt>
-                      <dd>{selectedPaymentMethod.bankName}</dd>
-                    </div>
-                  ) : null}
-                  <div>
-                    <dt>Account name</dt>
-                    <dd>{selectedPaymentMethod.accountName}</dd>
-                  </div>
-                  <div>
-                    <dt>Account number</dt>
-                    <dd>{selectedPaymentMethod.accountNumber}</dd>
-                  </div>
-                </dl>
-                <p className="muted small-text">{selectedPaymentMethod.instructions}</p>
+  <div>
+    <dt>Account Name</dt>
+    <dd>
+      {checkoutResult?.payment?.method?.accountName ??
+        selectedPaymentMethod.accountName}
+    </dd>
+  </div>
+
+  <div>
+    <dt>Account Number</dt>
+    <dd>
+      {checkoutResult?.payment?.method?.accountNumber ??
+        selectedPaymentMethod.accountNumber}
+    </dd>
+  </div>
+
+  <div>
+    <dt>Amount</dt>
+    <dd>
+      ${checkoutResult?.amount?.toFixed(2) ?? total.toFixed(2)}
+    </dd>
+  </div>
+</dl>
+
+<p className="muted small-text">
+  {checkoutResult ? (
+  <div className="checkout-success">
+    <strong>Order Number</strong>
+
+    <p>{checkoutResult.orderId}</p>
+  </div>
+) : null}
+{checkoutResult?.paymentMethod === 'gcash' ? (
+  <div className="receipt-upload">
+
+    <h4>Upload Payment Receipt</h4>
+
+    <label className="span-full">
+      Reference Number
+      <input
+        value={referenceNumber}
+        onChange={(event) =>
+          setReferenceNumber(event.target.value)
+        }
+        placeholder="GCash Reference Number"
+      />
+    </label>
+
+    <input
+      accept="image/*"
+      type="file"
+      onChange={(event) => {
+        const file = event.target.files?.[0];
+
+        if (!file) return;
+
+        setReceiptFile(file);
+
+        setReceiptPreview(
+          URL.createObjectURL(file)
+        );
+      }}
+    />
+
+    {receiptPreview && (
+      <img
+        className="receipt-preview"
+        src={receiptPreview}
+        alt="Receipt Preview"
+      />
+    )}
+
+    <button
+  className="button"
+  type="button"
+  disabled={
+    uploadingReceipt ||
+    !receiptFile ||
+    !referenceNumber.trim()
+  }
+  onClick={submitReceipt}
+>
+  {uploadingReceipt
+    ? 'Uploading...'
+    : 'Submit Receipt'}
+</button>
+
+  </div>
+) : null}
+  {checkoutResult?.payment?.instructions ??
+    selectedPaymentMethod.instructions}
+</p>
               </div>
             ) : null}
 
@@ -198,3 +370,4 @@ export function CheckoutPage({ cartItems, onRemoveItem, onClearCart }: CheckoutP
     </section>
   );
 }
+

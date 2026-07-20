@@ -78,22 +78,37 @@ export const authApi = {
 
 export const publicApi = {
   listClasses() {
-    return request<{ classes: PublicClass[] }>('/public/classes');
+    return request<{ classes: PublicClass[] }>('/classes');
+  },
+  getClass(slug: string) {
+    return request<{ classItem: PublicClass }>(`/classes/${encodeURIComponent(slug)}`);
   },
   listPaymentMethods() {
     return request<{ paymentMethods: ManualPaymentMethod[] }>('/public/payment-methods');
   },
-  checkoutManual(payload: {
-    customerName: string;
-    email: string;
-    paymentMethod: ManualPaymentMethod['code'];
-    items: Array<{ classId: string }>;
-  }) {
-    return request<CheckoutResponse>('/public/checkout/manual', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    });
-  },
+checkoutGcash(payload: {
+  customerName: string;
+  email: string;
+  paymentMethod: 'gcash';
+  items: Array<{ classId: string }>;
+}) {
+  return request<CheckoutResponse>('/public/checkout/gcash', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+},
+
+checkoutPaypal(payload: {
+  customerName: string;
+  email: string;
+  paymentMethod: 'paypal';
+  items: Array<{ classId: string }>;
+}) {
+  return request<CheckoutResponse>('/public/checkout/paypal/create-order', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+},
   getOrder(orderId: string) {
     return request<PublicOrderDetail>(`/public/orders/${encodeURIComponent(orderId)}`);
   },
@@ -130,26 +145,62 @@ export const adminClassesApi = {
   list(token: string) {
     return request<{ classes: ClassItem[] }>('/admin/classes', { token });
   },
-  create(token: string, values: ClassFormValues) {
+  create(
+  token: string,
+  values: Omit<ClassFormValues, "coverImage">
+){
     return request<{ classItem: ClassItem }>('/admin/classes', {
       method: 'POST',
       token,
       body: JSON.stringify(values),
     });
   },
-  update(token: string, classId: string, values: ClassFormValues) {
+  update(
+  token: string,
+  classId: string,
+  values: Omit<ClassFormValues, "coverImage">
+) {
     return request<{ classItem: ClassItem }>(`/admin/classes/${encodeURIComponent(classId)}`, {
-      method: 'PUT',
+      method: 'PATCH',
       token,
       body: JSON.stringify(values),
     });
   },
-  delete(token: string, classId: string) {
-    return request<void>(`/admin/classes/${encodeURIComponent(classId)}`, {
-      method: 'DELETE',
-      token,
-    });
-  },
+delete(token: string, classId: string) {
+  return request<void>(`/admin/classes/${encodeURIComponent(classId)}`, {
+    method: 'DELETE',
+    token,
+  });
+},
+
+async uploadCover(
+  token: string,
+  classId: string,
+  file: File
+) {
+  const formData = new FormData();
+
+  formData.append("cover", file);
+
+  const response = await fetch(
+    `${API_BASE_URL}/admin/classes/${encodeURIComponent(classId)}/cover`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to upload course cover.");
+  }
+
+  return response.json();
+},
+
 };
 
 export { API_BASE_URL };
+

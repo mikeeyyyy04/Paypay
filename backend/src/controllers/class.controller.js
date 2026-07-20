@@ -1,7 +1,8 @@
-﻿import {
+import {
   createClass as createClassRecord,
   deleteClass as deleteClassRecord,
   findAdminClasses,
+  findPublicClassBySlug,
   findPublicClasses,
   sanitizeClass,
   updateClass as updateClassRecord,
@@ -11,6 +12,17 @@
 export async function listPublicClasses(request, response) {
   const classes = await findPublicClasses();
   response.status(200).json({ classes: classes.map((classItem) => sanitizeClass(classItem)) });
+}
+
+export async function getPublicClass(request, response) {
+  const classItem = await findPublicClassBySlug(request.params.slug);
+
+  if (!classItem) {
+    response.status(404).json({ message: 'Class not found.' });
+    return;
+  }
+
+  response.status(200).json({ classItem: sanitizeClass(classItem) });
 }
 
 export async function listAdminClasses(request, response) {
@@ -43,6 +55,13 @@ export async function updateClass(request, response) {
 }
 
 export async function deleteClass(request, response) {
-  await deleteClassRecord(request.params.classId);
+  const classItem = await deleteClassRecord(request.params.classId);
+
+  if (classItem) {
+    response.status(200).json({ deleted: false, classItem: sanitizeClass(classItem) });
+    return;
+  }
+
   response.sendStatus(204);
 }
+

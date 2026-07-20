@@ -9,11 +9,13 @@ export const emptyClassForm: ClassFormValues = {
   capacity: 12,
   status: 'Draft',
   description: '',
+  coverImage: null,
 };
 
 export const initialClasses: ClassItem[] = [
   {
     id: 'advanced-lincoln-douglas-debate-class',
+    slug: 'advanced-lincoln-douglas-debate-class',
     title: 'Advanced Lincoln Douglas Debate Class',
     category: 'Debate',
     instructor: 'Lincoln Douglas Faculty',
@@ -26,6 +28,7 @@ export const initialClasses: ClassItem[] = [
   },
   {
     id: 'advanced-team-policy-debate-class',
+    slug: 'advanced-team-policy-debate-class',
     title: 'Advanced Team Policy Debate Class',
     category: 'Debate',
     instructor: 'Team Policy Faculty',
@@ -38,6 +41,7 @@ export const initialClasses: ClassItem[] = [
   },
   {
     id: 'parli-protocol',
+    slug: 'parli-protocol',
     title: 'Parli Protocol',
     category: 'Parliamentary Debate',
     instructor: 'Parli Faculty',
@@ -50,6 +54,7 @@ export const initialClasses: ClassItem[] = [
   },
   {
     id: 'debate-intro-class',
+    slug: 'debate-intro-class',
     title: 'Debate Intro Class',
     category: 'Debate',
     instructor: 'Intro Faculty',
@@ -62,6 +67,7 @@ export const initialClasses: ClassItem[] = [
   },
   {
     id: 'nihd-speech-class',
+    slug: 'nihd-speech-class',
     title: 'NIHD Speech Class',
     category: 'Speech',
     instructor: 'Speech Faculty',
@@ -74,6 +80,7 @@ export const initialClasses: ClassItem[] = [
   },
   {
     id: 'ultimate-ld-debate-class',
+    slug: 'ultimate-ld-debate-class',
     title: 'Ultimate LD Debate Class',
     category: 'Debate',
     instructor: 'Lincoln Douglas Faculty',
@@ -129,3 +136,4 @@ export const initialOrders: OrderItem[] = [
     verifiedAt: '2026-07-14',
   },
 ];
+

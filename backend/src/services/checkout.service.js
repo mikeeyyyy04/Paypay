@@ -1,7 +1,17 @@
 ﻿import { prisma } from '../database/prisma.js';
-import { findClassesForCheckout, classPrice } from './class.service.js';
-import { nextOrderId } from './order.service.js';
-import { parseManualCheckoutPayload } from '../schemas/checkout.schema.js';
+
+import {
+  findClassesForCheckout,
+  classPrice,
+} from './class.service.js';
+
+import {
+  nextOrderId,
+} from './order.service.js';
+
+import {
+  parseManualCheckoutPayload,
+} from '../schemas/checkout.schema.js';
 
 import {
   findPaymentMethod,
@@ -11,17 +21,24 @@ import {
 
 import {
   createPaypalOrder,
+  capturePaypalOrder,
 } from './paypal.service.js';
 
+/* ----------------------------------------------------------
+   Helpers
+---------------------------------------------------------- */
+
 function buildOrderSummary(selectedClasses) {
-  return selectedClasses.map((classItem) => classItem.title).join(', ');
+  return selectedClasses
+    .map((item) => item.title)
+    .join(', ');
 }
 
 function buildOrderItems(selectedClasses) {
-  return selectedClasses.map((classItem) => ({
-    classId: String(classItem.id),
-    title: classItem.title,
-    price: Number(classPrice(classItem).toFixed(2)),
+  return selectedClasses.map((item) => ({
+    classId: String(item.id),
+    title: item.title,
+    price: Number(classPrice(item).toFixed(2)),
   }));
 }
 
@@ -29,105 +46,425 @@ function amountToCents(amount) {
   return Math.round(Number(amount) * 100);
 }
 
+/* ----------------------------------------------------------
+   Create Order
+---------------------------------------------------------- */
+
+async function createOrder({
+  orderNumber,
+  customerName,
+  email,
+  subtotal,
+  totalAmount,
+  selectedClasses,
+}) {
+  return prisma.order.create({
+    data: {
+      orderNumber,
+
+      studentName: customerName,
+
+      studentEmail: email,
+
+      status: 'PENDING_PAYMENT',
+
+      subtotalCents: amountToCents(subtotal),
+
+      totalCents: amountToCents(totalAmount),
+
+      currency: 'USD',
+
+      items: {
+        create: selectedClasses.map((classItem) => ({
+          classId: classItem.id,
+
+          titleSnapshot: classItem.title,
+
+          unitPriceCents: classItem.priceCents,
+
+          quantity: 1,
+
+          lineTotalCents: classItem.priceCents,
+        })),
+      },
+    },
+  });
+}
+
+/* ----------------------------------------------------------
+   Create Payment
+---------------------------------------------------------- */
+
+async function createPayment({
+  orderId,
+  paymentMethod,
+  totalAmount,
+  gateway,
+}) {
+  return prisma.payment.create({
+    data: {
+      orderId,
+
+      paymentMethodId: paymentMethod.id,
+
+      amountCents: amountToCents(totalAmount),
+
+      currency: 'USD',
+
+      status: 'PENDING',
+
+      notes: JSON.stringify({
+        gateway,
+      }),
+    },
+  });
+}
+
+/* ----------------------------------------------------------
+   GCash Checkout
+---------------------------------------------------------- */
+
 export async function createManualCheckout(body) {
   const validation = parseManualCheckoutPayload(body);
 
   if (validation.error) {
-    return { statusCode: 400, body: { message: validation.error } };
+    return {
+      statusCode: 400,
+      body: {
+        message: validation.error,
+      },
+    };
   }
 
-  const { customerName, email, paymentMethod: paymentMethodCode, bankAccountId, items } = validation.values;
+  const {
+    customerName,
+    email,
+    paymentMethod: paymentMethodCode,
+    items,
+  } = validation.values;
+
+  if (paymentMethodCode !== 'gcash') {
+    return {
+      statusCode: 400,
+      body: {
+        message: 'Invalid payment method.',
+      },
+    };
+  }
+
   const selectedClassIds = items.map((item) => item.classId);
-  const selectedClasses = await findClassesForCheckout(selectedClassIds);
 
-  if (selectedClasses.length === 0) {
-    return { statusCode: 400, body: { message: 'No valid active classes found for checkout.' } };
+  const selectedClasses =
+    await findClassesForCheckout(selectedClassIds);
+
+  if (!selectedClasses.length) {
+    return {
+      statusCode: 400,
+      body: {
+        message: 'No valid classes selected.',
+      },
+    };
   }
 
-  const paymentMethod = await findPaymentMethod(paymentMethodCode);
+  const paymentMethod =
+    await findPaymentMethod('gcash');
 
   if (!paymentMethod?.isActive) {
-    return { statusCode: 400, body: { message: 'Payment method is not configured.' } };
+    return {
+      statusCode: 400,
+      body: {
+        message: 'GCash payment is unavailable.',
+      },
+    };
   }
 
-  const subtotal = selectedClasses.reduce((total, classItem) => total + classPrice(classItem), 0);
+  const subtotal = selectedClasses.reduce(
+    (total, classItem) => total + classPrice(classItem),
+    0
+  );
+
   const totalAmount = Number(subtotal.toFixed(2));
+
   const orderNumber = await nextOrderId();
-  let paymentSession;
-  let bankName = '';
 
-  if (paymentMethodCode === 'gcash') {
-    const paymentMethodDetails = {
-      code: 'gcash',
-      name: 'GCash',
-      ...gcashDetails(),
-      instructions: paymentMethod.instructions ?? '',
-    };
-
-    bankName = 'GCash';
-    paymentSession = createManualPaymentSession({
+  const paymentSession =
+    createManualPaymentSession({
       orderId: orderNumber,
       email,
       totalAmount,
-      paymentMethod: paymentMethodDetails,
+      paymentMethod: {
+        code: 'gcash',
+        name: 'GCash',
+        ...gcashDetails(),
+        instructions:
+          paymentMethod.instructions ?? '',
+      },
     });
-  } else {
-    const bankAccounts = configuredBankAccounts().filter((account) => account.isActive);
-    const bankAccount = bankAccounts.find((account) => account.id === bankAccountId) ?? bankAccounts[0];
 
-    if (!bankAccount) {
-      return { statusCode: 400, body: { message: 'No active bank account is available for payment.' } };
-    }
+  const order = await createOrder({
+    orderNumber,
+    customerName,
+    email,
+    subtotal,
+    totalAmount,
+    selectedClasses,
+  });
 
-    bankName = bankAccount.bankName;
-    paymentSession = createBankTransferSession({ orderId: orderNumber, email, totalAmount, bankAccount });
-  }
-
-  const order = await prisma.order.create({
-    data: {
-      orderNumber,
-      studentName: customerName,
-      studentEmail: email,
-      status: 'PENDING_PAYMENT',
-      subtotalCents: amountToCents(subtotal),
-      totalCents: amountToCents(totalAmount),
-      currency: 'PHP',
-      items: {
-        create: selectedClasses.map((classItem) => ({
-          classId: classItem.id,
-          titleSnapshot: classItem.title,
-          unitPriceCents: classItem.priceCents,
-          quantity: 1,
-          lineTotalCents: classItem.priceCents,
-        })),
-      },
-      payments: {
-        create: {
-          paymentMethodId: paymentMethod.id,
-          amountCents: amountToCents(totalAmount),
-          currency: 'PHP',
-          status: 'PENDING',
-          notes: JSON.stringify({
-            bankName,
-            gateway: paymentSession,
-            message:
-              paymentMethodCode === 'gcash' ? 'Awaiting payment verification.' : 'Awaiting student receipt upload.',
-          }),
-        },
-      },
-    },
+  await createPayment({
+    orderId: order.id,
+    paymentMethod,
+    totalAmount,
+    gateway: paymentSession,
   });
 
   return {
     statusCode: 201,
     body: {
+      success: true,
+
+      paymentMethod: 'gcash',
+
       orderId: order.orderNumber,
+
       amount: totalAmount,
-      currency: paymentSession.currency,
-      checkoutUrl: `/checkout/${encodeURIComponent(order.orderNumber)}`,
+
+      currency: 'USD',
+
       payment: paymentSession,
-      classTitle: buildOrderSummary(selectedClasses),
-      items: buildOrderItems(selectedClasses),
+
+      classTitle:
+        buildOrderSummary(selectedClasses),
+
+      items:
+        buildOrderItems(selectedClasses),
+    },
+  };
+}
+
+/* ----------------------------------------------------------
+   PayPal Checkout
+---------------------------------------------------------- */
+
+export async function createPaypalCheckout(body) {
+  const validation = parseManualCheckoutPayload(body);
+
+  if (validation.error) {
+    return {
+      statusCode: 400,
+      body: {
+        message: validation.error,
+      },
+    };
+  }
+
+  const {
+    customerName,
+    email,
+    paymentMethod: paymentMethodCode,
+    items,
+  } = validation.values;
+
+  if (paymentMethodCode !== 'paypal') {
+    return {
+      statusCode: 400,
+      body: {
+        message: 'Invalid payment method.',
+      },
+    };
+  }
+
+  const selectedClassIds = items.map(
+    (item) => item.classId
+  );
+
+  const selectedClasses =
+    await findClassesForCheckout(selectedClassIds);
+
+  if (!selectedClasses.length) {
+    return {
+      statusCode: 400,
+      body: {
+        message: 'No valid classes selected.',
+      },
+    };
+  }
+
+  const paymentMethod =
+    await findPaymentMethod('paypal');
+
+  if (!paymentMethod?.isActive) {
+    return {
+      statusCode: 400,
+      body: {
+        message: 'PayPal is unavailable.',
+      },
+    };
+  }
+
+  const subtotal = selectedClasses.reduce(
+    (total, classItem) => total + classPrice(classItem),
+    0
+  );
+
+  const totalAmount = Number(subtotal.toFixed(2));
+
+  const orderNumber = await nextOrderId();
+
+  /*
+   * Create Order FIRST
+   */
+
+  const order = await createOrder({
+    orderNumber,
+    customerName,
+    email,
+    subtotal,
+    totalAmount,
+    selectedClasses,
+  });
+
+  /*
+   * Create PayPal Order
+   */
+
+  const paypal =
+    await createPaypalOrder({
+      orderId: orderNumber,
+      totalAmount,
+      currency: 'USD',
+    });
+
+  /*
+   * Save Payment
+   */
+
+  await prisma.payment.create({
+    data: {
+      orderId: order.id,
+
+      paymentMethodId: paymentMethod.id,
+
+      amountCents:
+        amountToCents(totalAmount),
+
+      currency: 'USD',
+
+      status: 'PENDING',
+
+      externalReference:
+        paypal.orderId,
+
+      notes: JSON.stringify({
+        gateway: 'PayPal',
+      }),
+    },
+  });
+
+  return {
+    statusCode: 201,
+
+    body: {
+      success: true,
+
+      paymentMethod: 'paypal',
+
+      orderId: order.orderNumber,
+
+      amount: totalAmount,
+
+      currency: 'USD',
+
+      checkoutUrl:
+        paypal.checkoutUrl,
+
+      paypalOrderId:
+        paypal.orderId,
+    },
+  };
+}
+
+/* ----------------------------------------------------------
+   Capture PayPal Payment
+---------------------------------------------------------- */
+
+export async function capturePaypalCheckout(body) {
+  const { paypalOrderId } = body;
+
+  if (!paypalOrderId) {
+    return {
+      statusCode: 400,
+      body: {
+        message: 'PayPal Order ID is required.',
+      },
+    };
+  }
+
+  /*
+   * Capture payment from PayPal
+   */
+  const capture =
+    await capturePaypalOrder(paypalOrderId);
+
+  /*
+   * Find payment using PayPal Order ID
+   */
+  const payment = await prisma.payment.findFirst({
+    where: {
+      externalReference: paypalOrderId,
+    },
+    include: {
+      order: true,
+    },
+  });
+
+  if (!payment) {
+    return {
+      statusCode: 404,
+      body: {
+        message: 'Payment not found.',
+      },
+    };
+  }
+
+  /*
+   * Update Payment
+   */
+  await prisma.payment.update({
+    where: {
+      id: payment.id,
+    },
+    data: {
+      status: 'PAID',
+      verifiedAt: new Date(),
+      notes: JSON.stringify({
+        gateway: 'PayPal',
+        captureId: capture.captureId,
+        payer: capture.payer,
+      }),
+    },
+  });
+
+  /*
+   * Update Order
+   */
+  await prisma.order.update({
+    where: {
+      id: payment.orderId,
+    },
+    data: {
+      status: 'PAID',
+      paidAt: new Date(),
+    },
+  });
+
+  return {
+    statusCode: 200,
+    body: {
+      success: true,
+      message: 'Payment completed successfully.',
+      captureId: capture.captureId,
+      payer: capture.payer,
+      orderNumber: payment.order.orderNumber,
     },
   };
 }

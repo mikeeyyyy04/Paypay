@@ -1,4 +1,4 @@
-﻿export const CLASS_STATUS_TO_API = {
+export const CLASS_STATUS_TO_API = {
   DRAFT: 'Draft',
   PUBLISHED: 'Active',
   FULL: 'Full',
@@ -13,5 +13,5 @@ export const CLASS_STATUS_TO_DATABASE = {
   Archived: 'ARCHIVED',
 };
 
-export const PUBLIC_CLASS_STATUSES = ['PUBLISHED', 'FULL'];
+export const PUBLIC_CLASS_STATUSES = ['PUBLISHED'];
 export const API_CLASS_STATUSES = Object.keys(CLASS_STATUS_TO_DATABASE);

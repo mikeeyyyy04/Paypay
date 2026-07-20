@@ -1,9 +1,37 @@
 ﻿import { Router } from 'express';
-import { checkoutManual, paymongoDisabled } from '../controllers/checkout.controller.js';
+
+import {
+  manualCheckout,
+  paypalCheckout,
+  paypalCapture,
+} from '../controllers/checkout.controller.js';
+
 import { asyncHandler } from '../utils/asyncHandler.js';
 
-export const checkoutRoutes = Router();
+const router = Router();
 
-checkoutRoutes.post('/manual', asyncHandler(checkoutManual));
-checkoutRoutes.post('/bank-transfer', asyncHandler(checkoutManual));
-checkoutRoutes.post('/paymongo', asyncHandler(paymongoDisabled));
+/**
+ * GCash Checkout
+ */
+router.post(
+  '/gcash',
+  asyncHandler(manualCheckout)
+);
+
+/**
+ * Create PayPal Order
+ */
+router.post(
+  '/paypal/create-order',
+  asyncHandler(paypalCheckout)
+);
+
+/**
+ * Capture PayPal Payment
+ */
+router.post(
+  '/paypal/capture-order',
+  asyncHandler(paypalCapture)
+);
+
+export default router;

@@ -59,8 +59,15 @@ export default function App() {
       ) : null}
 
       <Routes>
-        <Route path="/" element={<PublicHomePage cartCount={cartCount} onAddToCart={addToCart} />} />
-        <Route path="/classes" element={<PublicClassesPage cartCount={cartCount} onAddToCart={addToCart} />} />
+        <Route
+  path="/"
+  element={<PublicHomePage cartCount={cartCount} />}
+/>
+
+<Route
+  path="/classes"
+  element={<PublicClassesPage />}
+/>
         <Route
           path="/course/:id"
           element={<CourseDetailsPage cartCount={cartCount} onAddToCart={addToCart} />}

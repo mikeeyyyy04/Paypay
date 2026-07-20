@@ -90,21 +90,60 @@ export function AppShell() {
     };
   }, [token]);
 
-  async function saveClass(values: ClassFormValues, classId?: string) {
-    if (!token) {
-      setClassesError('Your admin session expired. Please log in again.');
-      return;
-    }
-
-    if (classId) {
-      const response = await adminClassesApi.update(token, classId, values);
-      setClasses((currentClasses) => currentClasses.map((classItem) => (classItem.id === classId ? response.classItem : classItem)));
-      return;
-    }
-
-    const response = await adminClassesApi.create(token, values);
-    setClasses((currentClasses) => [response.classItem, ...currentClasses]);
+async function saveClass(values: ClassFormValues, classId?: string) {
+  if (!token) {
+    setClassesError("Your admin session expired. Please log in again.");
+    return;
   }
+
+  // Separate the image from the JSON data
+  const { coverImage, ...classData } = values;
+
+  if (classId) {
+    // Update the class information
+    const response = await adminClassesApi.update(
+      token,
+      classId,
+      classData
+    );
+
+    // Upload a new cover image if selected
+    if (coverImage) {
+      await adminClassesApi.uploadCover(
+        token,
+        classId,
+        coverImage
+      );
+    }
+
+    // Reload classes so the new coverImage is returned
+    const updated = await adminClassesApi.list(token);
+
+    setClasses(updated.classes);
+
+    return;
+  }
+
+  // Create the class first
+  const response = await adminClassesApi.create(
+    token,
+    classData
+  );
+
+  // Upload cover image if selected
+  if (coverImage) {
+    await adminClassesApi.uploadCover(
+      token,
+      response.classItem.id,
+      coverImage
+    );
+  }
+
+  // Reload classes
+  const updated = await adminClassesApi.list(token);
+
+  setClasses(updated.classes);
+}
 
   async function deleteClass(classId: string) {
     if (!token) {
@@ -123,7 +162,21 @@ export function AppShell() {
       return;
     }
 
-    await saveClass({ ...classItem, status }, classId);
+    await saveClass(
+      {
+        title: classItem.title,
+        category: classItem.category,
+        instructor: classItem.instructor,
+        schedule: classItem.schedule,
+        price: classItem.price,
+        capacity: classItem.capacity,
+        status,
+        description: classItem.description,
+        enrolled: classItem.enrolled,
+        coverImage: null,
+      },
+      classId,
+    );
   }
 
   async function verifyOrder(orderId: string, values: VerificationValues) {
@@ -220,3 +273,4 @@ export function AppShell() {
     </div>
   );
 }
+

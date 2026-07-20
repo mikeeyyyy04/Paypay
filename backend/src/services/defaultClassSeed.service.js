@@ -1,9 +1,6 @@
-import 'dotenv/config';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../database/prisma.js';
 
-const prisma = new PrismaClient();
-
-const classes = [
+export const defaultClasses = [
   {
     slug: 'advanced-lincoln-douglas-debate',
     title: 'Advanced Lincoln Douglas Debate',
@@ -78,12 +75,16 @@ const classes = [
   },
 ];
 
-await prisma.$executeRawUnsafe('ALTER TABLE classes ADD COLUMN IF NOT EXISTS cover_image_url text');
+export async function seedDefaultClasses() {
+  await prisma.$executeRawUnsafe('ALTER TABLE classes ADD COLUMN IF NOT EXISTS cover_image_url text');
 
-for (const classItem of classes) {
-  const existingClass = await prisma.class.findUnique({ where: { slug: classItem.slug } });
+  for (const classItem of defaultClasses) {
+    const existingClass = await prisma.class.findUnique({ where: { slug: classItem.slug } });
 
-  if (!existingClass) {
+    if (existingClass) {
+      continue;
+    }
+
     await prisma.class.create({
       data: {
         ...classItem,
@@ -92,9 +93,4 @@ for (const classItem of classes) {
     });
   }
 }
-
-const count = await prisma.class.count();
-console.log(`Seeded default classes when missing. Current class count: ${count}`);
-
-await prisma.$disconnect();
 

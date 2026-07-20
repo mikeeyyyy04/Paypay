@@ -1,0 +1,41 @@
+### Get Payment Methods
+GET http://localhost:3000/api/public/payment-methods
+
+###
+
+### Get Classes
+GET http://localhost:3000/api/public/classes
+
+###
+
+### GCash Checkout
+POST http://localhost:3000/api/public/checkout/gcash
+Content-Type: application/json
+
+{
+  "customerName": "Mike Estrada",
+  "email": "mike@example.com",
+  "paymentMethod": "gcash",
+  "items": [
+    {
+      "classId": "5282d57a-ead4-4628-9ba5-34857a4596a4"
+    }
+  ]
+}
+
+###
+
+### PayPal Checkout
+POST http://localhost:3000/api/public/checkout/paypal/create-order
+Content-Type: application/json
+
+{
+  "customerName": "Mike Estrada",
+  "email": "mike@example.com",
+  "paymentMethod": "paypal",
+  "items": [
+    {
+      "classId": "5282d57a-ead4-4628-9ba5-34857a4596a4"
+    }
+  ]
+}

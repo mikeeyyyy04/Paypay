@@ -39,7 +39,7 @@ export async function findUserByToken(token) {
     return null;
   }
 
-  const [payload, signature] = token.split('.');
+  const [payload, signature] = token.split(".");
 
   if (!payload || !signature || signature !== sign(payload)) {
     return null;
@@ -52,17 +52,24 @@ export async function findUserByToken(token) {
   }
 
   const user = await prisma.user.findUnique({
-    where: { email: decoded.email },
-    include: { userRoles: { include: { role: true } } },
+    where: {
+      email: decoded.email,
+    },
   });
 
   if (!user) {
     return null;
   }
 
-  const isAdmin = user.userRoles?.some((userRole) => userRole.role.name === 'admin') ?? decoded.email === ADMIN_EMAIL;
+  // Use the configured admin email instead of user_roles
+  if (decoded.email.toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
+    return null;
+  }
 
-  return isAdmin ? { ...user, role: 'admin' } : null;
+  return {
+    ...user,
+    role: "admin",
+  };
 }
 
 export async function loginAdmin({ email, password }) {

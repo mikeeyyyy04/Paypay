@@ -1,4 +1,4 @@
-﻿import { z } from 'zod';
+import { z } from 'zod';
 import { API_CLASS_STATUSES, CLASS_STATUS_TO_DATABASE } from '../constants/classStatus.js';
 
 const requiredText = (field) => z.string({ required_error: `${field} is required.` }).trim().min(1, `${field} is required.`);
@@ -11,7 +11,7 @@ export const classPayloadSchema = z.object({
   description: requiredText('Description'),
   price: z.coerce.number().finite().min(0, 'Price must be zero or greater.'),
   capacity: z.coerce.number().int().min(1, 'Capacity must be at least 1.'),
-  enrolled: z.coerce.number().int().min(0, 'Enrolled must be between 0 and capacity.'),
+  enrolled: z.coerce.number().int().min(0, 'Enrolled must be between 0 and capacity.').default(0),
   status: z.enum(API_CLASS_STATUSES, {
     errorMap: () => ({ message: 'Status must be Draft, Active, Full, or Archived.' }),
   }).default('Draft'),
@@ -44,3 +44,4 @@ export function parseClassPayload(body) {
     },
   };
 }
+

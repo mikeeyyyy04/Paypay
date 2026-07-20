@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import defaultCourse from '../assets/courses/img1.jpg';
 import { emptyClassForm } from '../data/initialData';
 import type { ClassFormValues, ClassItem } from '../types';
 
@@ -12,39 +13,8 @@ type ClassesPageProps = {
   onArchiveClass: (classId: string) => Promise<void> | void;
 };
 
-type Artwork = {
-  eyebrow: string;
-  lines: string[];
-};
 
-const artworkByTitle: Record<string, Artwork> = {
-  'Advanced Lincoln Douglas Debate Class': {
-    eyebrow: 'Lincoln Douglas',
-    lines: ['Debate', 'Class'],
-  },
-  'Advanced Team Policy Debate Class': {
-    eyebrow: 'Team Policy',
-    lines: ['Debate', 'Class'],
-  },
-  'Parli Protocol': {
-    eyebrow: 'Monthly',
-    lines: ['Parli', 'Protocol'],
-  },
-  'Debate Intro Class': {
-    eyebrow: 'Debate',
-    lines: ['Intro', 'Class'],
-  },
-  'NIHD Speech Class': {
-    eyebrow: 'NIHD',
-    lines: ['Speech', 'Class'],
-  },
-  'Ultimate LD Debate Class': {
-    eyebrow: 'Ultimate LD',
-    lines: ['Debate', 'Class'],
-  },
-};
-
-export function ClassesPage({ classes, loading = false, error = '', onSaveClass, onDeleteClass }: ClassesPageProps) {
+export function ClassesPage({ classes, loading = false, error = '', onSaveClass, onDeleteClass, onActivateClass, onArchiveClass }: ClassesPageProps) {
   const [formValues, setFormValues] = useState<ClassFormValues>(emptyClassForm);
   const [editingClassId, setEditingClassId] = useState<string | undefined>();
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -97,6 +67,23 @@ export function ClassesPage({ classes, loading = false, error = '', onSaveClass,
     setIsFormOpen(true);
   }
 
+  async function changeClassStatus(classItem: ClassItem, status: ClassFormValues['status']) {
+    await onSaveClass(
+      {
+        title: classItem.title,
+        category: classItem.category,
+        instructor: classItem.instructor,
+        schedule: classItem.schedule,
+        price: classItem.price,
+        capacity: classItem.capacity,
+        status,
+        description: classItem.description,
+        enrolled: classItem.enrolled,
+        coverImage: null,
+      },
+      classItem.id,
+    );
+  }
   async function submitClass(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setIsSaving(true);
@@ -150,13 +137,21 @@ export function ClassesPage({ classes, loading = false, error = '', onSaveClass,
                   required
                 />
               </label>
-              <label>
+                            <label>
                 Category
                 <input
                   value={formValues.category}
                   onChange={(event) => setFormValues((current) => ({ ...current, category: event.target.value }))}
+                  list="class-categories"
                   required
                 />
+                <datalist id="class-categories">
+                  <option value="Lincoln Douglas" />
+                  <option value="Team Policy" />
+                  <option value="Speech" />
+                  <option value="Parli" />
+                  <option value="Debate 101" />
+                </datalist>
               </label>
               <label>
                 Instructor
@@ -224,6 +219,21 @@ export function ClassesPage({ classes, loading = false, error = '', onSaveClass,
                   placeholder="Optional"
                 />
               </label>
+
+              <label className="span-full">
+  Cover Image
+
+  <input
+    type="file"
+    accept="image/*"
+    onChange={(event) =>
+      setFormValues((current) => ({
+        ...current,
+        coverImage: event.target.files?.[0] ?? null,
+      }))
+    }
+  />
+</label>
               <label className="span-full">
                 Description
                 <textarea
@@ -248,21 +258,10 @@ export function ClassesPage({ classes, loading = false, error = '', onSaveClass,
       {error ? <p className="error catalog-subtitle">{error}</p> : null}
 
       <div className="class-catalog-grid">
-        {classes.map((classItem, index) => {
-          const artwork = artworkByTitle[classItem.title] ?? {
-            eyebrow: classItem.category,
-            lines: classItem.title.split(' ').slice(-2),
-          };
-
-          return (
+        {classes.map((classItem) => (
             <article className="class-product class-product-admin" key={classItem.id}>
-              <div className={`class-art class-art-${index + 1}`} aria-hidden="true">
-                <div className="class-art-copy">
-                  <span>{artwork.eyebrow}</span>
-                  {artwork.lines.map((line) => (
-                    <strong key={line}>{line}</strong>
-                  ))}
-                </div>
+              <div className="class-cover-frame">
+                <img src={classItem.coverImage ?? defaultCourse} alt={classItem.title} />
               </div>
               <div className="class-card-topline">
                 <span className="class-card-category">{classItem.category}</span>
@@ -291,9 +290,23 @@ export function ClassesPage({ classes, loading = false, error = '', onSaveClass,
                 </div>
               </div>
               <div className="class-card-actions">
-                <button className="button button-secondary class-card-button" type="button" onClick={() => startEditing(classItem)}>
+                                <button className="button button-secondary class-card-button" type="button" onClick={() => startEditing(classItem)}>
                   Edit
                 </button>
+                {classItem.status === 'Active' ? (
+                  <button className="button button-secondary class-card-button" type="button" onClick={() => void changeClassStatus(classItem, 'Draft')}>
+                    Unpublish
+                  </button>
+                ) : (
+                  <button className="button button-secondary class-card-button" type="button" onClick={() => void onActivateClass(classItem.id)}>
+                    Publish
+                  </button>
+                )}
+                {classItem.status !== 'Archived' ? (
+                  <button className="button button-secondary class-card-button" type="button" onClick={() => void onArchiveClass(classItem.id)}>
+                    Archive
+                  </button>
+                ) : null}
                 <button
                   className="button button-danger class-card-button"
                   type="button"
@@ -311,9 +324,11 @@ export function ClassesPage({ classes, loading = false, error = '', onSaveClass,
                 </button>
               </div>
             </article>
-          );
-        })}
+        ))}
       </div>
     </section>
   );
 }
+
+
+

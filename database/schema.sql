@@ -82,6 +82,7 @@ create table classes (
   currency char(3) not null default 'PHP',
   status class_status not null default 'DRAFT',
   published_at timestamptz,
+  cover_image_url text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint classes_capacity_positive check (capacity > 0),
@@ -227,6 +228,7 @@ create table announcements (
   body text not null,
   audience announcement_audience not null default 'ALL',
   published_at timestamptz,
+  cover_image_url text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint announcements_title_not_blank check (length(trim(title)) > 0),
@@ -389,3 +391,4 @@ alter table announcements enable row level security;
 alter table notifications enable row level security;
 alter table contacts enable row level security;
 alter table activity_logs enable row level security;
+

@@ -54,7 +54,8 @@ export function Navbar() {
     }
 
     const sectionElements = navItems
-      .map((item) => document.getElementById(item.sectionId))
+      .filter((item) => item.sectionId)
+      .map((item) => document.getElementById(item.sectionId!))
       .filter((section): section is HTMLElement => Boolean(section));
 
     if (!sectionElements.length) {
@@ -135,32 +136,31 @@ export function Navbar() {
         aria-label="Primary navigation"
       >
         <div className="public-nav-links">
-          {navItems.map((item) => (
-  <button
-    key={item.label}
-    className={activeSection === item.sectionId ? "active" : ""}
-    type="button"
-    onClick={() => {
-      setIsMenuOpen(false);
+          {navItems.map((item) => {
+            const isClassesActive = item.path === "/classes" && location.pathname === "/classes";
+            const isSectionActive = activeSection === item.sectionId;
 
-      if (item.path === "/classes") {
-        navigate("/classes");
-        return;
-      }
+            return (
+              <button
+                key={item.label}
+                className={isClassesActive || isSectionActive ? "active" : ""}
+                type="button"
+                onClick={() => {
+                  setIsMenuOpen(false);
 
-      if (item.path === "/") {
-        navigate("/");
-        return;
-      }
-
-      if (item.sectionId) {
-        scrollToSection(item.sectionId);
-      }
-    }}
-  >
-    {item.label}
-  </button>
-))}
+                  if (item.path === "/classes") {
+                    navigate("/classes");
+                  } else if (item.path === "/") {
+                    navigate("/");
+                  } else if (item.sectionId) {
+                    scrollToSection(item.sectionId);
+                  }
+                }}
+              >
+                {item.label}
+              </button>
+            );
+          })}
         </div>
 
         <Link className="public-login-button" to="/admin/login" onClick={() => setIsMenuOpen(false)}>
