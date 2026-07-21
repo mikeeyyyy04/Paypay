@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { publicApi } from '../api';
 import type { PublicClass } from '../types';
+import { publicCourses } from '../data/initialData';
 import { CourseCard } from '../components/CourseCard';
 import defaultCourse from '../assets/courses/img1.jpg';
 
 export function PublicClassesPage() {
-  const [courses, setCourses] = useState<PublicClass[]>([]);
+  const [courses, setCourses] = useState<PublicClass[]>(publicCourses);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('ALL');
@@ -17,7 +18,7 @@ export function PublicClassesPage() {
       try {
         const response = await publicApi.listClasses();
 
-        if (mounted) {
+        if (mounted && response?.classes?.length) {
           setCourses(response.classes);
         }
       } catch (err) {
@@ -50,51 +51,43 @@ export function PublicClassesPage() {
 
   return (
     <main className="courses-page">
-      <section className="courses-hero">
-        <div className="courses-hero-content">
-          <span className="courses-badge">PROFESSIONAL DEBATE TRAINING</span>
-          <h1>OUR COURSES</h1>
+      <header className="courses-page-hero">
+        <div className="courses-hero-copy">
+          <span className="page-tag">ALL</span>
+          <h1>CLASSES</h1>
           <p>
-            Learn from nationally recognized debate coaches through structured online programs designed to help students compete with confidence.
+            Master debate, public speaking, and critical thinking through world-class training.
           </p>
         </div>
-      </section>
 
-      <nav className="courses-filter" aria-label="Course catalog filters">
-        {categories.map((category) => (
-          <button
-            key={category}
-            type="button"
-            className={selectedCategory === category ? 'active' : ''}
-            onClick={() => setSelectedCategory(category)}
-          >
-            {category}
-          </button>
-        ))}
-      </nav>
+        <nav className="courses-category-bar" aria-label="Course categories">
+          {categories.map((category) => (
+            <button
+              key={category}
+              type="button"
+              className={`courses-category-chip ${selectedCategory === category ? 'active' : ''}`}
+              onClick={() => setSelectedCategory(category)}
+            >
+              {category}
+            </button>
+          ))}
+        </nav>
+      </header>
 
-      <section className="courses-grid" aria-label="Available debate courses">
+      <section className="courses-grid" aria-label="Available classes">
         {loading ? <p className="catalog-message">Loading courses...</p> : null}
         {!loading && error ? <p className="catalog-message error">{error}</p> : null}
         {!loading && !error && filteredCourses.length === 0 ? (
-          <p className="catalog-message">No courses available in this category.</p>
+          <p className="catalog-message">No classes available yet.</p>
         ) : null}
 
         {!loading && !error
           ? filteredCourses.map((course) => (
-              <CourseCard
-                key={course.id}
-                slug={course.slug}
-                title={course.title}
-                image={course.coverImage ?? defaultCourse}
-                instructor={course.instructor}
-                category={course.category}
-                price={course.price}
-                description={course.description}
-              />
+              <CourseCard key={course.id} course={course} />
             ))
           : null}
       </section>
+
     </main>
   );
 }

@@ -53,6 +53,12 @@ export type VerificationValues = {
   notes: string;
 };
 
+export type PricingOption = {
+  key: string;
+  label: string;
+  amount: number;
+};
+
 export type PublicClass = {
   id: string;
   slug: string;
@@ -61,6 +67,7 @@ export type PublicClass = {
   instructor: string;
   schedule: string;
   price: number;
+  pricingOptions?: PricingOption[];
   capacity: number;
   enrolled: number;
   status: ClassStatus;
@@ -76,6 +83,8 @@ export type CartItem = {
   schedule: string;
   price: number;
   quantity: number;
+  pricingOptionKey?: string;
+  pricingOptionLabel?: string;
 };
 
 export type PaymentSession = {
@@ -98,11 +107,11 @@ export type PaymentSession = {
 };
 
 export type ManualPaymentMethod = {
-  code: 'gcash' | 'bank_transfer';
-  name: 'GCash' | 'Bank transfer';
+  code: 'gcash' | 'paypal' | 'bank_transfer';
+  name: 'GCash' | 'PayPal' | 'Bank transfer';
   bankName?: string;
-  accountName: string;
-  accountNumber: string;
+  accountName?: string;
+  accountNumber?: string;
   routingNumber?: string;
   qrImageUrl?: string;
   instructions: string;
@@ -118,7 +127,7 @@ export type ReceiptSubmission = {
 
 export type CheckoutResponse = {
   success: boolean;
-  paymentMethod: 'gcash' | 'paypal';
+  paymentMethod: 'gcash' | 'paypal' | 'bank_transfer';
 
   orderId: string;
 

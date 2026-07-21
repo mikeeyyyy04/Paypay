@@ -8,6 +8,12 @@ const defaultPaymentMethods = [
       'Send the payment to the GCash account below, then upload your receipt for verification.',
   },
   {
+    code: 'bank_transfer',
+    name: 'Bank transfer',
+    instructions:
+      'Transfer the payment to the bank account below, then upload your receipt for verification.',
+  },
+  {
     code: 'paypal',
     name: 'PayPal',
     instructions:
@@ -49,7 +55,7 @@ export async function listPaymentMethods() {
     where: {
       isActive: true,
       code: {
-        in: ['gcash', 'paypal'],
+        in: ['gcash', 'paypal', 'bank_transfer'],
       },
     },
     orderBy: {

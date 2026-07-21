@@ -11,7 +11,15 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 const router = Router();
 
 /**
- * GCash Checkout
+ * Manual checkout (GCash or Bank Transfer)
+ */
+router.post(
+  '/manual',
+  asyncHandler(manualCheckout)
+);
+
+/**
+ * GCash Checkout alias for legacy clients
  */
 router.post(
   '/gcash',

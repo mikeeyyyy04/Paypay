@@ -145,14 +145,7 @@ const selectedPaymentMethod =
         })),
       };
 
-      if (paymentMethod === 'gcash') {
-        const response = await publicApi.checkoutGcash({
-          ...payload,
-          paymentMethod: 'gcash',
-        });
-
-        setCheckoutResult(response);
-      } else {
+      if (paymentMethod === 'paypal') {
         const response = await publicApi.checkoutPaypal({
           ...payload,
           paymentMethod: 'paypal',
@@ -165,6 +158,13 @@ const selectedPaymentMethod =
 
         throw new Error('PayPal checkout URL was not returned.');
       }
+
+      const response = await publicApi.checkoutManual({
+        ...payload,
+        paymentMethod,
+      });
+
+      setCheckoutResult(response);
     } catch (apiError) {
       setError(apiError instanceof Error ? apiError.message : 'Checkout failed.');
     } finally {
@@ -173,7 +173,14 @@ const selectedPaymentMethod =
   }
 
   const paymentMethodLabel =
-  paymentMethod === 'gcash' ? 'GCash' : 'PayPal';
+    paymentMethod === 'paypal'
+      ? 'PayPal'
+      : paymentMethod === 'bank_transfer'
+      ? 'Bank transfer'
+      : 'GCash';
+
+  const isGcashSelected = paymentMethod === 'gcash';
+  const isManualPayment = paymentMethod !== 'paypal';
 
   return (
     <section className="storefront-page">
@@ -200,7 +207,7 @@ const selectedPaymentMethod =
                   <p className="muted small-text">{item.schedule}</p>
                 </div>
                 <div className="cart-right">
-                  <span>PHP {(item.price * item.quantity).toFixed(2)}</span>
+                  <span>USD {(item.price * item.quantity).toFixed(2)}</span>
                   <button className="text-button danger" type="button" onClick={() => onRemoveItem(item.classId)}>
                     Remove
                   </button>
@@ -211,11 +218,11 @@ const selectedPaymentMethod =
           <div className="checkout-summary">
             <p>
               <span>Subtotal</span>
-              <strong>PHP {subtotal.toFixed(2)}</strong>
+              <strong>USD {subtotal.toFixed(2)}</strong>
             </p>
             <p className="checkout-total">
               <span>Total</span>
-              <strong>PHP {total.toFixed(2)}</strong>
+              <strong>USD {total.toFixed(2)}</strong>
             </p>
           </div>
         </section>
@@ -252,106 +259,97 @@ const selectedPaymentMethod =
             {selectedPaymentMethod ? (
               <div className="payment-instructions span-full">
                 <strong>{selectedPaymentMethod.name} payment details</strong>
-                {checkoutResult?.payment?.method?.qrImageUrl ? (
-  <img
-    className="payment-qr"
-    src={checkoutResult.payment.method.qrImageUrl}
-    alt="GCash QR Code"
-  />
-) : null}
+                {isGcashSelected && checkoutResult?.payment?.method?.qrImageUrl ? (
+                  <img
+                    className="payment-qr"
+                    src={checkoutResult.payment.method.qrImageUrl}
+                    alt="GCash QR Code"
+                  />
+                ) : null}
                 <dl className="detail-list">
-  <div>
-    <dt>Account Name</dt>
-    <dd>
-      {checkoutResult?.payment?.method?.accountName ??
-        selectedPaymentMethod.accountName}
-    </dd>
-  </div>
+                  {(checkoutResult?.payment?.method?.accountName || selectedPaymentMethod.accountName) ? (
+                    <div>
+                      <dt>Account Name</dt>
+                      <dd>
+                        {checkoutResult?.payment?.method?.accountName ?? selectedPaymentMethod.accountName}
+                      </dd>
+                    </div>
+                  ) : null}
 
-  <div>
-    <dt>Account Number</dt>
-    <dd>
-      {checkoutResult?.payment?.method?.accountNumber ??
-        selectedPaymentMethod.accountNumber}
-    </dd>
-  </div>
+                  {(checkoutResult?.payment?.method?.accountNumber || selectedPaymentMethod.accountNumber) ? (
+                    <div>
+                      <dt>Account Number</dt>
+                      <dd>
+                        {checkoutResult?.payment?.method?.accountNumber ?? selectedPaymentMethod.accountNumber}
+                      </dd>
+                    </div>
+                  ) : null}
 
-  <div>
-    <dt>Amount</dt>
-    <dd>
-      ${checkoutResult?.amount?.toFixed(2) ?? total.toFixed(2)}
-    </dd>
-  </div>
-</dl>
+                  <div>
+                    <dt>Amount</dt>
+                    <dd>${checkoutResult?.amount?.toFixed(2) ?? total.toFixed(2)}</dd>
+                  </div>
+                </dl>
 
-<p className="muted small-text">
-  {checkoutResult ? (
-  <div className="checkout-success">
-    <strong>Order Number</strong>
+                {checkoutResult ? (
+                  <div className="checkout-success">
+                    <strong>Order Number</strong>
+                    <p>{checkoutResult.orderId}</p>
+                  </div>
+                ) : null}
 
-    <p>{checkoutResult.orderId}</p>
-  </div>
-) : null}
-{checkoutResult?.paymentMethod === 'gcash' ? (
-  <div className="receipt-upload">
+                {checkoutResult?.paymentMethod !== 'paypal' ? (
+                  <div className="receipt-upload">
+                    <h4>Upload Payment Receipt</h4>
 
-    <h4>Upload Payment Receipt</h4>
+                    <label className="span-full">
+                      Reference Number
+                      <input
+                        value={referenceNumber}
+                        onChange={(event) => setReferenceNumber(event.target.value)}
+                        placeholder={
+                          checkoutResult?.paymentMethod === 'bank_transfer'
+                            ? 'Bank transfer reference number'
+                            : 'GCash Reference Number'
+                        }
+                      />
+                    </label>
 
-    <label className="span-full">
-      Reference Number
-      <input
-        value={referenceNumber}
-        onChange={(event) =>
-          setReferenceNumber(event.target.value)
-        }
-        placeholder="GCash Reference Number"
-      />
-    </label>
+                    <input
+                      accept="image/*"
+                      type="file"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
 
-    <input
-      accept="image/*"
-      type="file"
-      onChange={(event) => {
-        const file = event.target.files?.[0];
+                        if (!file) return;
 
-        if (!file) return;
+                        setReceiptFile(file);
+                        setReceiptPreview(URL.createObjectURL(file));
+                      }}
+                    />
 
-        setReceiptFile(file);
+                    {receiptPreview && (
+                      <img
+                        className="receipt-preview"
+                        src={receiptPreview}
+                        alt="Receipt Preview"
+                      />
+                    )}
 
-        setReceiptPreview(
-          URL.createObjectURL(file)
-        );
-      }}
-    />
+                    <button
+                      className="button"
+                      type="button"
+                      disabled={uploadingReceipt || !receiptFile || !referenceNumber.trim()}
+                      onClick={submitReceipt}
+                    >
+                      {uploadingReceipt ? 'Uploading...' : 'Submit Receipt'}
+                    </button>
+                  </div>
+                ) : null}
 
-    {receiptPreview && (
-      <img
-        className="receipt-preview"
-        src={receiptPreview}
-        alt="Receipt Preview"
-      />
-    )}
-
-    <button
-  className="button"
-  type="button"
-  disabled={
-    uploadingReceipt ||
-    !receiptFile ||
-    !referenceNumber.trim()
-  }
-  onClick={submitReceipt}
->
-  {uploadingReceipt
-    ? 'Uploading...'
-    : 'Submit Receipt'}
-</button>
-
-  </div>
-) : null}
-  {checkoutResult?.payment?.instructions ??
-    selectedPaymentMethod.instructions}
-</p>
+                <p className="muted small-text">
+                  {checkoutResult?.payment?.instructions ?? selectedPaymentMethod.instructions}
+                </p>
               </div>
             ) : null}
 
@@ -359,9 +357,7 @@ const selectedPaymentMethod =
 
             <div className="form-actions span-full">
               <button className="button" type="submit" disabled={submitting || cartItems.length === 0}>
-                {submitting
-                  ? `Creating ${paymentMethodLabel} order...`
-                  : `Continue to ${paymentMethodLabel} details`}
+                {submitting ? `Creating ${paymentMethodLabel} order...` : `Continue to ${paymentMethodLabel} details`}
               </button>
             </div>
           </form>

@@ -142,7 +142,7 @@ export function CheckoutSuccessPage() {
             </div>
             <div>
               <dt>Total</dt>
-              <dd>PHP {order.amount.toFixed(2)}</dd>
+              <dd>USD {order.amount.toFixed(2)}</dd>
             </div>
           </dl>
 
@@ -154,7 +154,7 @@ export function CheckoutSuccessPage() {
                   <strong>{item.title}</strong>
                 </div>
                 <div className="cart-right">
-                  <span>PHP {item.price.toFixed(2)}</span>
+                  <span>USD {item.price.toFixed(2)}</span>
                 </div>
               </li>
             ))}

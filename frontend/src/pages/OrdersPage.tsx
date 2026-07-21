@@ -126,7 +126,7 @@ function OrderVerificationCard({
       <div className="order-amount-row">
         <div>
           <span className="muted small-text">Amount</span>
-          <strong>PHP {order.amount.toFixed(2)}</strong>
+          <strong>USD {order.amount.toFixed(2)}</strong>
         </div>
         <div>
           <span className="muted small-text">Reference</span>

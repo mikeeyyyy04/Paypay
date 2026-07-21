@@ -42,6 +42,8 @@ export async function createPaypalOrder({
   orderId,
   totalAmount,
   currency = 'USD',
+  returnUrl,
+  cancelUrl,
 }) {
   const token = await getAccessToken();
 
@@ -55,6 +57,13 @@ export async function createPaypalOrder({
       },
       body: JSON.stringify({
         intent: 'CAPTURE',
+        application_context: {
+          return_url: returnUrl,
+          cancel_url: cancelUrl,
+          brand_name: 'PayPay',
+          landing_page: 'NO_PREFERENCE',
+          user_action: 'PAY_NOW',
+        },
         purchase_units: [
           {
             reference_id: orderId,

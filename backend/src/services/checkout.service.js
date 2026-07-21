@@ -143,7 +143,7 @@ export async function createManualCheckout(body) {
     items,
   } = validation.values;
 
-  if (paymentMethodCode !== 'gcash') {
+  if (paymentMethodCode !== 'gcash' && paymentMethodCode !== 'bank_transfer') {
     return {
       statusCode: 400,
       body: {
@@ -167,13 +167,13 @@ export async function createManualCheckout(body) {
   }
 
   const paymentMethod =
-    await findPaymentMethod('gcash');
+    await findPaymentMethod(paymentMethodCode);
 
   if (!paymentMethod?.isActive) {
     return {
       statusCode: 400,
       body: {
-        message: 'GCash payment is unavailable.',
+        message: `${paymentMethod?.name ?? 'Selected'} payment method is unavailable.`,
       },
     };
   }
@@ -193,9 +193,9 @@ export async function createManualCheckout(body) {
       email,
       totalAmount,
       paymentMethod: {
-        code: 'gcash',
-        name: 'GCash',
-        ...gcashDetails(),
+        code: paymentMethod.code,
+        name: paymentMethod.name,
+        ...((paymentMethod.code === 'gcash') ? gcashDetails() : {}),
         instructions:
           paymentMethod.instructions ?? '',
       },
@@ -222,7 +222,7 @@ export async function createManualCheckout(body) {
     body: {
       success: true,
 
-      paymentMethod: 'gcash',
+      paymentMethod: paymentMethod.code,
 
       orderId: order.orderNumber,
 
@@ -240,6 +240,7 @@ export async function createManualCheckout(body) {
     },
   };
 }
+
 
 /* ----------------------------------------------------------
    PayPal Checkout
@@ -327,11 +328,19 @@ export async function createPaypalCheckout(body) {
    * Create PayPal Order
    */
 
+  const frontendOrigin =
+    process.env.FRONTEND_BASE_URL ?? 'http://localhost:5173';
+
   const paypal =
     await createPaypalOrder({
       orderId: orderNumber,
       totalAmount,
       currency: 'USD',
+      description: buildOrderSummary(selectedClasses),
+      returnUrl: `${frontendOrigin}/checkout/paypal-return?orderNumber=${encodeURIComponent(
+        orderNumber,
+      )}`,
+      cancelUrl: `${frontendOrigin}/checkout`,
     });
 
   /*
@@ -413,7 +422,11 @@ export async function capturePaypalCheckout(body) {
       externalReference: paypalOrderId,
     },
     include: {
-      order: true,
+      order: {
+        include: {
+          items: true,
+        },
+      },
     },
   });
 
@@ -426,36 +439,49 @@ export async function capturePaypalCheckout(body) {
     };
   }
 
-  /*
-   * Update Payment
-   */
-  await prisma.payment.update({
-    where: {
-      id: payment.id,
-    },
-    data: {
-      status: 'PAID',
-      verifiedAt: new Date(),
-      notes: JSON.stringify({
-        gateway: 'PayPal',
-        captureId: capture.captureId,
-        payer: capture.payer,
-      }),
-    },
-  });
+  if (capture.status !== 'COMPLETED') {
+    return {
+      statusCode: 400,
+      body: {
+        message: 'PayPal payment is not completed.',
+      },
+    };
+  }
 
   /*
-   * Update Order
+   * Update Payment and Order
    */
-  await prisma.order.update({
-    where: {
-      id: payment.orderId,
-    },
-    data: {
-      status: 'PAID',
-      paidAt: new Date(),
-    },
+  const updatedOrder = await prisma.$transaction(async (tx) => {
+    await tx.payment.update({
+      where: {
+        id: payment.id,
+      },
+      data: {
+        status: 'PAID',
+        verifiedAt: new Date(),
+        notes: JSON.stringify({
+          gateway: 'PayPal',
+          captureId: capture.captureId,
+          payer: capture.payer,
+        }),
+      },
+    });
+
+    return tx.order.update({
+      where: {
+        id: payment.orderId,
+      },
+      data: {
+        status: 'PAID',
+        paidAt: new Date(),
+      },
+      include: {
+        items: true,
+      },
+    });
   });
+
+  await approveEnrollmentForOrder(updatedOrder);
 
   return {
     statusCode: 200,

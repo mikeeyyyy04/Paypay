@@ -119,6 +119,9 @@ export async function listOrders() {
 }
 
 export function publicOrderDetail(order) {
+  const payment = paymentForOrder(order);
+  const paymentNotes = parsePaymentNotes(payment?.notes);
+
   return {
     id: order.orderNumber,
     customer: order.studentName,
@@ -127,9 +130,29 @@ export function publicOrderDetail(order) {
     amount: centsToAmount(order.totalCents),
     reference: order.orderNumber,
     items: orderItems(order),
-    payment: parsePaymentNotes(paymentForOrder(order)?.notes).gateway,
-    paymentReferenceNumber: paymentForOrder(order)?.externalReference,
-    receipt: parsePaymentNotes(paymentForOrder(order)?.notes).receipt,
+    payment: {
+      gateway: paymentNotes.gateway ?? payment?.method?.name ?? '',
+      sessionId: payment?.id ?? '',
+      paymentUrl: paymentNotes.paymentUrl ?? '',
+      amount: centsToAmount(payment?.amountCents),
+      currency: payment?.currency ?? order.currency,
+      payerEmail: order.studentEmail,
+      expiresAt: paymentNotes.expiresAt ?? null,
+      orderId: order.orderNumber,
+      instructions: paymentNotes.message ?? payment?.method?.instructions ?? '',
+      method: payment?.method
+        ? {
+            code: payment.method.code,
+            name: payment.method.name,
+            accountName: paymentNotes.accountName ?? '',
+            accountNumber: paymentNotes.accountNumber ?? '',
+            qrImageUrl: paymentNotes.qrImageUrl ?? '',
+            instructions: payment.method.instructions ?? '',
+          }
+        : undefined,
+    },
+    paymentReferenceNumber: payment?.externalReference,
+    receipt: paymentNotes.receipt,
   };
 }
 

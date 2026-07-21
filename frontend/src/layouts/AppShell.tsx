@@ -96,52 +96,24 @@ async function saveClass(values: ClassFormValues, classId?: string) {
     return;
   }
 
-  // Separate the image from the JSON data
-  const { coverImage, ...classData } = values;
-
-  if (classId) {
-    // Update the class information
-    const response = await adminClassesApi.update(
-      token,
-      classId,
-      classData
-    );
-
-    // Upload a new cover image if selected
-    if (coverImage) {
-      await adminClassesApi.uploadCover(
-        token,
-        classId,
-        coverImage
-      );
-    }
-
-    // Reload classes so the new coverImage is returned
-    const updated = await adminClassesApi.list(token);
-
-    setClasses(updated.classes);
-
+  if (!classId) {
+    setClassesError('Creating new classes is disabled. Edit an existing class instead.');
     return;
   }
 
-  // Create the class first
-  const response = await adminClassesApi.create(
-    token,
-    classData
-  );
+  // Separate the image from the JSON data
+  const { coverImage, ...classData } = values;
 
-  // Upload cover image if selected
+  // Update the class information
+  await adminClassesApi.update(token, classId, classData);
+
+  // Upload a new cover image if selected
   if (coverImage) {
-    await adminClassesApi.uploadCover(
-      token,
-      response.classItem.id,
-      coverImage
-    );
+    await adminClassesApi.uploadCover(token, classId, coverImage);
   }
 
-  // Reload classes
+  // Reload classes so the new coverImage is returned
   const updated = await adminClassesApi.list(token);
-
   setClasses(updated.classes);
 }
 
@@ -155,30 +127,7 @@ async function saveClass(values: ClassFormValues, classId?: string) {
     setClasses((currentClasses) => currentClasses.filter((classItem) => classItem.id !== classId));
   }
 
-  async function updateClassStatus(classId: string, status: ClassStatus) {
-    const classItem = classes.find((candidate) => candidate.id === classId);
-
-    if (!classItem) {
-      return;
-    }
-
-    await saveClass(
-      {
-        title: classItem.title,
-        category: classItem.category,
-        instructor: classItem.instructor,
-        schedule: classItem.schedule,
-        price: classItem.price,
-        capacity: classItem.capacity,
-        status,
-        description: classItem.description,
-        enrolled: classItem.enrolled,
-        coverImage: null,
-      },
-      classId,
-    );
-  }
-
+  
   async function verifyOrder(orderId: string, values: VerificationValues) {
     if (!token) {
       return;
@@ -261,8 +210,6 @@ async function saveClass(values: ClassFormValues, classId?: string) {
                 error={classesError}
                 onSaveClass={saveClass}
                 onDeleteClass={deleteClass}
-                onActivateClass={(classId) => updateClassStatus(classId, 'Active')}
-                onArchiveClass={(classId) => updateClassStatus(classId, 'Archived')}
               />
             }
           />

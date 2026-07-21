@@ -112,7 +112,7 @@ thinking through world-class training.
 <div className="course-footer">
 
     <span className="course-price">
-        PHP {classItem.price.toLocaleString()}
+        USD {classItem.price.toLocaleString()}
     </span>
 
     <Link

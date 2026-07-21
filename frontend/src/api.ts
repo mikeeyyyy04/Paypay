@@ -86,29 +86,52 @@ export const publicApi = {
   listPaymentMethods() {
     return request<{ paymentMethods: ManualPaymentMethod[] }>('/public/payment-methods');
   },
-checkoutGcash(payload: {
-  customerName: string;
-  email: string;
-  paymentMethod: 'gcash';
-  items: Array<{ classId: string }>;
-}) {
-  return request<CheckoutResponse>('/public/checkout/gcash', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
-},
+  checkoutManual(payload: {
+    customerName: string;
+    email: string;
+    paymentMethod: 'gcash' | 'bank_transfer';
+    items: Array<{ classId: string }>;
+  }) {
+    return request<CheckoutResponse>('/public/checkout/manual', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
 
-checkoutPaypal(payload: {
-  customerName: string;
-  email: string;
-  paymentMethod: 'paypal';
-  items: Array<{ classId: string }>;
-}) {
-  return request<CheckoutResponse>('/public/checkout/paypal/create-order', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
-},
+  checkoutGcash(payload: {
+    customerName: string;
+    email: string;
+    paymentMethod: 'gcash';
+    items: Array<{ classId: string }>;
+  }) {
+    return request<CheckoutResponse>('/public/checkout/gcash', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  checkoutPaypal(payload: {
+    customerName: string;
+    email: string;
+    paymentMethod: 'paypal';
+    items: Array<{ classId: string }>;
+  }) {
+    return request<CheckoutResponse>('/public/checkout/paypal/create-order', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  capturePaypalOrder(payload: { paypalOrderId: string }) {
+    return request<{ success: boolean; orderNumber: string; message?: string }>(
+      '/public/checkout/paypal/capture-order',
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      },
+    );
+  },
+
   getOrder(orderId: string) {
     return request<PublicOrderDetail>(`/public/orders/${encodeURIComponent(orderId)}`);
   },

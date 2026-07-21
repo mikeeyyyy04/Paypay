@@ -8,9 +8,10 @@ import { CheckoutSuccessPage } from './pages/CheckoutSuccessPage';
 import { CourseDetailsPage } from './pages/CourseDetailsPage';
 import { LoginPage } from './pages/LoginPage';
 import { NotFoundPage } from './pages/NotFoundPage';
+import { PayPalReturnPage } from './pages/PayPalReturnPage';
 import { PublicClassesPage } from './pages/PublicClassesPage';
 import { PublicHomePage } from './pages/PublicHomePage';
-import type { CartItem, PublicClass } from './types';
+import type { CartItem } from './types';
 
 export default function App() {
   const location = useLocation();
@@ -21,25 +22,19 @@ export default function App() {
     [cartItems],
   );
 
-  function addToCart(classItem: PublicClass) {
+  function addToCart(cartItem: CartItem) {
     setCartItems((currentItems) => {
-      const existingItem = currentItems.find((item) => item.classId === classItem.id);
+      const existingItem = currentItems.find((item) => item.classId === cartItem.classId);
 
       if (existingItem) {
-        return currentItems;
+        return currentItems.map((item) =>
+          item.classId === cartItem.classId
+            ? { ...item, quantity: item.quantity + cartItem.quantity }
+            : item,
+        );
       }
 
-      return [
-        ...currentItems,
-        {
-          classId: classItem.id,
-          title: classItem.title,
-          instructor: classItem.instructor,
-          schedule: classItem.schedule,
-          price: classItem.price,
-          quantity: 1,
-        },
-      ];
+      return [...currentItems, cartItem];
     });
   }
 
@@ -82,6 +77,7 @@ export default function App() {
             />
           }
         />
+        <Route path="/checkout/paypal-return" element={<PayPalReturnPage />} />
         <Route path="/checkout/:orderId" element={<CheckoutSuccessPage />} />
         <Route path="/login" element={<Navigate to="/" replace />} />
         <Route path="/admin/login" element={<LoginPage />} />

@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import defaultCourse from '../assets/courses/img1.jpg';
 import { emptyClassForm } from '../data/initialData';
 import type { ClassFormValues, ClassItem } from '../types';
@@ -9,17 +9,35 @@ type ClassesPageProps = {
   error?: string;
   onSaveClass: (values: ClassFormValues, classId?: string) => Promise<void> | void;
   onDeleteClass: (classId: string) => Promise<void> | void;
-  onActivateClass: (classId: string) => Promise<void> | void;
-  onArchiveClass: (classId: string) => Promise<void> | void;
 };
 
-
-export function ClassesPage({ classes, loading = false, error = '', onSaveClass, onDeleteClass, onActivateClass, onArchiveClass }: ClassesPageProps) {
+export function ClassesPage({ classes, loading = false, error = '', onSaveClass, onDeleteClass }: ClassesPageProps) {
   const [formValues, setFormValues] = useState<ClassFormValues>(emptyClassForm);
   const [editingClassId, setEditingClassId] = useState<string | undefined>();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [actionError, setActionError] = useState('');
+
+  const previewImageUrl = useMemo(() => {
+    if (formValues.coverImage instanceof File) {
+      return URL.createObjectURL(formValues.coverImage);
+    }
+    return defaultCourse;
+  }, [formValues.coverImage]);
+
+  useEffect(() => {
+    let revokeUrl: string | undefined;
+
+    if (formValues.coverImage instanceof File) {
+      revokeUrl = previewImageUrl;
+    }
+
+    return () => {
+      if (revokeUrl) {
+        URL.revokeObjectURL(revokeUrl);
+      }
+    };
+  }, [previewImageUrl, formValues.coverImage]);
 
   const editingClass = classes.find((classItem) => classItem.id === editingClassId);
 
@@ -45,12 +63,6 @@ export function ClassesPage({ classes, loading = false, error = '', onSaveClass,
     setIsFormOpen(false);
   }
 
-  function openCreateForm() {
-    setFormValues(emptyClassForm);
-    setEditingClassId(undefined);
-    setIsFormOpen(true);
-  }
-
   function startEditing(classItem: ClassItem) {
     setEditingClassId(classItem.id);
     setFormValues({
@@ -67,23 +79,6 @@ export function ClassesPage({ classes, loading = false, error = '', onSaveClass,
     setIsFormOpen(true);
   }
 
-  async function changeClassStatus(classItem: ClassItem, status: ClassFormValues['status']) {
-    await onSaveClass(
-      {
-        title: classItem.title,
-        category: classItem.category,
-        instructor: classItem.instructor,
-        schedule: classItem.schedule,
-        price: classItem.price,
-        capacity: classItem.capacity,
-        status,
-        description: classItem.description,
-        enrolled: classItem.enrolled,
-        coverImage: null,
-      },
-      classItem.id,
-    );
-  }
   async function submitClass(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setIsSaving(true);
@@ -105,11 +100,8 @@ export function ClassesPage({ classes, loading = false, error = '', onSaveClass,
         <div>
           <p className="catalog-eyebrow">Class management</p>
           <h2>Classes</h2>
-          <p className="catalog-subtitle">Create new classes, edit the catalog, and remove stale entries.</p>
+          <p className="catalog-subtitle">Edit existing classes in the catalog and remove stale entries.</p>
         </div>
-        <button className="button small-button catalog-add-button" type="button" onClick={openCreateForm}>
-          Add class
-        </button>
       </header>
 
       {isFormOpen ? (
@@ -118,10 +110,8 @@ export function ClassesPage({ classes, loading = false, error = '', onSaveClass,
             <div className="panel-header modal-header">
               <div>
                 <p className="catalog-eyebrow">Class management</p>
-                <h3 id="class-modal-title">{editingClass ? 'Edit class' : 'Add class'}</h3>
-                <p className="muted">
-                  {editingClass ? 'Update the selected class and save the changes.' : 'Fill out the form to create a new class.'}
-                </p>
+                <h3 id="class-modal-title">Edit class</h3>
+                <p className="muted">Update the selected class and save the changes.</p>
               </div>
               <button className="text-button" type="button" onClick={resetForm} aria-label="Close class form">
                 Close
@@ -129,43 +119,20 @@ export function ClassesPage({ classes, loading = false, error = '', onSaveClass,
             </div>
 
             <form className="form-grid catalog-form" onSubmit={submitClass}>
+              <div className="edit-summary span-full">
+                <h4>{editingClass?.title || 'Selected class'}</h4>
+                <p className="muted">Instructor: {editingClass?.instructor || '—'}</p>
+                <p className="muted">
+                  Registered: {editingClass?.enrolled ?? 0}/{editingClass?.capacity ?? 0}
+                </p>
+              </div>
+
               <label>
-                Title
-                <input
-                  value={formValues.title}
-                  onChange={(event) => setFormValues((current) => ({ ...current, title: event.target.value }))}
-                  required
-                />
-              </label>
-                            <label>
-                Category
-                <input
-                  value={formValues.category}
-                  onChange={(event) => setFormValues((current) => ({ ...current, category: event.target.value }))}
-                  list="class-categories"
-                  required
-                />
-                <datalist id="class-categories">
-                  <option value="Lincoln Douglas" />
-                  <option value="Team Policy" />
-                  <option value="Speech" />
-                  <option value="Parli" />
-                  <option value="Debate 101" />
-                </datalist>
-              </label>
-              <label>
-                Instructor
-                <input
-                  value={formValues.instructor}
-                  onChange={(event) => setFormValues((current) => ({ ...current, instructor: event.target.value }))}
-                  required
-                />
-              </label>
-              <label>
-                Schedule
+                Dates & Times
                 <input
                   value={formValues.schedule}
                   onChange={(event) => setFormValues((current) => ({ ...current, schedule: event.target.value }))}
+                  placeholder="DATES & TIMES: MONDAYS 5:00PM-6:00PM* PACIFIC TIME"
                   required
                 />
               </label>
@@ -177,79 +144,57 @@ export function ClassesPage({ classes, loading = false, error = '', onSaveClass,
                   type="number"
                   min="0"
                   step="0.01"
+                  placeholder="199"
                   required
                 />
               </label>
-              <label>
-                Capacity
+              <label className="span-full">
+                Cover Image
                 <input
-                  value={formValues.capacity}
-                  onChange={(event) => setFormValues((current) => ({ ...current, capacity: Number(event.target.value) }))}
-                  type="number"
-                  min="1"
-                  step="1"
-                  required
-                />
-              </label>
-              <label>
-                Status
-                <select
-                  value={formValues.status}
-                  onChange={(event) => setFormValues((current) => ({ ...current, status: event.target.value as ClassFormValues['status'] }))}
-                >
-                  <option>Draft</option>
-                  <option>Active</option>
-                  <option>Full</option>
-                  <option>Archived</option>
-                </select>
-              </label>
-              <label>
-                Enrolled
-                <input
-                  value={formValues.enrolled ?? ''}
+                  type="file"
+                  accept="image/*"
                   onChange={(event) =>
                     setFormValues((current) => ({
                       ...current,
-                      enrolled: event.target.value === '' ? undefined : Number(event.target.value),
+                      coverImage: event.target.files?.[0] ?? null,
                     }))
                   }
-                  type="number"
-                  min="0"
-                  step="1"
-                  placeholder="Optional"
-                />
-              </label>
-
-              <label className="span-full">
-  Cover Image
-
-  <input
-    type="file"
-    accept="image/*"
-    onChange={(event) =>
-      setFormValues((current) => ({
-        ...current,
-        coverImage: event.target.files?.[0] ?? null,
-      }))
-    }
-  />
-</label>
-              <label className="span-full">
-                Description
-                <textarea
-                  value={formValues.description}
-                  onChange={(event) => setFormValues((current) => ({ ...current, description: event.target.value }))}
-                  rows={4}
-                  required
                 />
               </label>
               <div className="form-actions span-full">
                 <button className="button small-button" type="submit">
-                  {isSaving ? 'Saving...' : editingClass ? 'Save changes' : 'Add class'}
+                  {isSaving ? 'Saving...' : 'Save changes'}
                 </button>
               </div>
               {actionError ? <p className="error span-full">{actionError}</p> : null}
             </form>
+
+            <div className="preview-panel">
+              <p className="catalog-eyebrow">Preview</p>
+              <article className="class-product class-product-admin">
+                <div className="class-cover-frame">
+                  <img src={previewImageUrl} alt={formValues.title || 'Course preview'} />
+                </div>
+                <div className="class-card-topline">
+                  <span className="class-card-category">{formValues.category || 'Debate'}</span>
+                  <span className="class-card-price">USD {(formValues.price || 199).toFixed(2)}</span>
+                </div>
+                <h2>{formValues.title || 'Ultimate LD Debate Class'}</h2>
+                <p className="class-card-description">
+                  {formValues.description || 'This class will focus on how to become a top Lincoln Douglas debater and improve your LD debate skills.'}
+                </p>
+                <div className="class-card-meta">
+                  <div>
+                    <span className="class-card-label">Instructor</span>
+                    <strong>{formValues.instructor || 'Griffith Vertican'}</strong>
+                  </div>
+                  <div>
+                    <span className="class-card-label">Schedule</span>
+                    <strong>{formValues.schedule || 'DATES & TIMES: MONDAYS 5:00PM-6:00PM* PACIFIC TIME'}</strong>
+                  </div>
+                </div>
+              </article>
+            </div>
           </div>
         </div>
       ) : null}
@@ -265,7 +210,7 @@ export function ClassesPage({ classes, loading = false, error = '', onSaveClass,
               </div>
               <div className="class-card-topline">
                 <span className="class-card-category">{classItem.category}</span>
-                <span className="class-card-price">PHP {classItem.price.toFixed(2)}</span>
+                <span className="class-card-price">USD {classItem.price.toFixed(2)}</span>
               </div>
               <h2>{classItem.title}</h2>
               <p className="class-card-description">{classItem.description}</p>
@@ -290,23 +235,9 @@ export function ClassesPage({ classes, loading = false, error = '', onSaveClass,
                 </div>
               </div>
               <div className="class-card-actions">
-                                <button className="button button-secondary class-card-button" type="button" onClick={() => startEditing(classItem)}>
+                <button className="button button-secondary class-card-button" type="button" onClick={() => startEditing(classItem)}>
                   Edit
                 </button>
-                {classItem.status === 'Active' ? (
-                  <button className="button button-secondary class-card-button" type="button" onClick={() => void changeClassStatus(classItem, 'Draft')}>
-                    Unpublish
-                  </button>
-                ) : (
-                  <button className="button button-secondary class-card-button" type="button" onClick={() => void onActivateClass(classItem.id)}>
-                    Publish
-                  </button>
-                )}
-                {classItem.status !== 'Archived' ? (
-                  <button className="button button-secondary class-card-button" type="button" onClick={() => void onArchiveClass(classItem.id)}>
-                    Archive
-                  </button>
-                ) : null}
                 <button
                   className="button button-danger class-card-button"
                   type="button"
@@ -329,6 +260,7 @@ export function ClassesPage({ classes, loading = false, error = '', onSaveClass,
     </section>
   );
 }
+
 
 
 
